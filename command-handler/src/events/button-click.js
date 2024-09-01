@@ -14,6 +14,7 @@ export default function button(app, handler) {
 
       runButton({
         commandName,
+        actionId,
         handler,
         body,
         say,

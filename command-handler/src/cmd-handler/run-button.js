@@ -1,5 +1,6 @@
 export default async ({
     commandName,
+    actionId,
     handler,
     body,
     say,
@@ -20,5 +21,5 @@ export default async ({
         return
     }
 
-    command.button({ handler, body, response });
+    command.button({ handler, body, response, actionId });
 };
