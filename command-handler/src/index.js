@@ -5,6 +5,7 @@ export default class CommandHandler {
     constructor({ app, commandsDir }) {
         if (!app) throw new Error('App is required');
         this._app = app;
+        this._commandHandler = null;
         if (commandsDir) this._commandHandler = new cmdHandler(commandsDir, app, this);
 
         command(app, this);

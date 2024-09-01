@@ -12,12 +12,6 @@ const app = new App({
     appToken: process.env.APP_TOKEN,
 });
 
-// // Listens to incoming messages that contain "hello"
-// app.message('hello', async ({ message, say }) => {
-//     // say() sends a message to the channel where the event was triggered
-//     await say(`Hey there <@${message.user}>!`);
-//   });
-
 (async () => {
     await app.start(process.env.PORT || 3000);
     console.log('Bot is ready');

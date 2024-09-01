@@ -7,7 +7,7 @@ export default class CommandHandler {
     //<commandName, commandObject>
     _commands = new Map();
 
-    constructor(commandsDir, app, handler) {
+    constructor(commandsDir, handler) {
         if (!commandsDir) throw new Error('Commands directory is required');
 
         this.init(commandsDir, handler);

@@ -6,7 +6,9 @@ export default function command(app, handler) {
         const content = message.text;
         if (!content.startsWith(prefix)) return;
 
-        const args = content.slice(prefix.length).split(/ +/g);
+        const args = content.slice(prefix.length).trim().split(/ +/g);
+        if (args.length === 0) return;
+        
         const commandName = args.shift().toLowerCase();
 
         runCommand({
