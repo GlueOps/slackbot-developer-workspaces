@@ -17,7 +17,7 @@ export default async ({
     const text = args.join(' ');
 
     const response = (obj) => {
-        say(obj.content)
+        say(obj)
     };
 
     command.run({ handler, message, response, text, args });
