@@ -7,8 +7,16 @@ import 'server';
 
 const app = new App({
     token: process.env.BOT_TOKEN,
-    signingSecret: process.env.SIGNING_SECRET
+    signingSecret: process.env.SIGNING_SECRET,
+    socketMode: true,
+    appToken: process.env.APP_TOKEN,
 });
+
+// // Listens to incoming messages that contain "hello"
+// app.message('hello', async ({ message, say }) => {
+//     // say() sends a message to the channel where the event was triggered
+//     await say(`Hey there <@${message.user}>!`);
+//   });
 
 (async () => {
     await app.start(process.env.PORT || 3000);
@@ -16,9 +24,6 @@ const app = new App({
 
     new CH({
         app,
-        events: {
-            dir: path.join(process.cwd(), 'src', 'events')
-        },
         featuresDir: path.join(process.cwd(), 'src', 'features'),
         commandsDir: path.join(process.cwd(), 'src', 'commands'),
     });
