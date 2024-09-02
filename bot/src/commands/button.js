@@ -3,7 +3,7 @@ export default {
 
     button: ({ handler, body, response }) => {
         console.log(body);
-        console.log(handler);
+        // console.log(handler);
         response({
             text: `<@${body.user.id}> clicked the Button`
         })

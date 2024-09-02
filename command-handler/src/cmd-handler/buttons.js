@@ -10,6 +10,19 @@ const registeredButtons = {
     },
     button_click: {
         command: 'button',
+    },
+    //regex patterns to match generated buttons
+    "^button_start_": {
+        command: 'vm',
+        isRegex: true,
+    },
+    "^button_stop_": {
+        command: 'vm',
+        isRegex: true,
+    },
+    "^button_delete_": {
+        command: 'vm',
+        isRegex: true,
     }
 };
 

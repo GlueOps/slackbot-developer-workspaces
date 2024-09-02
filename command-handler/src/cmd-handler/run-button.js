@@ -2,6 +2,7 @@ export default async ({
     commandName,
     actionId,
     handler,
+    app,
     body,
     say,
 }) => {
@@ -21,5 +22,5 @@ export default async ({
         return
     }
 
-    command.button({ handler, body, response, actionId });
+    command.button({ handler, app, body, response, actionId });
 };

@@ -1,0 +1,14 @@
+list Servers
+-get all servers from tailscale
+
+Start Stop Delete
+
+Create Server 
+- auto generate name
+- use hetzner api to create server
+    - assign a label in hetzner
+    - set cloudconfig
+- set 2 minute delay
+- get servers from tailscale
+- set tag in tailscale
+- return ip from tailscale

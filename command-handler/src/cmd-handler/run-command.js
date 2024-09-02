@@ -1,6 +1,7 @@
 export default async ({
     commandName,
     handler,
+    app,
     message,
     args,
     say
@@ -20,5 +21,5 @@ export default async ({
         say(obj)
     };
 
-    command.run({ handler, message, response, text, args });
+    command.run({ handler, app, message, response, text, args });
 };

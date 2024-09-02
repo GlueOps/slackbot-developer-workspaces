@@ -14,6 +14,7 @@ export default function command(app, handler) {
         runCommand({
             commandName,
             handler,
+            app,
             message,
             say,
             args

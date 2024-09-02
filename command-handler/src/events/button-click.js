@@ -10,12 +10,24 @@ export default function button(app, handler) {
       // Extract the action ID from the event body
       const actionId = body.actions[0].action_id;
 
-      const commandName = registeredButtons[actionId]?.command || null;
+      // Check for an exact match first
+      if (registeredButtons[actionId]) {
+        commandName = registeredButtons[actionId].command;
+      } else {
+          // If no exact match, check for a regex pattern match
+          for (const [pattern, config] of Object.entries(registeredButtons)) {
+              if (config.isRegex && new RegExp(pattern).test(actionId)) {
+                  commandName = config.command;
+                  break;
+              }
+          }
+      }
 
       runButton({
         commandName,
         actionId,
         handler,
+        app,
         body,
         say,
         })
