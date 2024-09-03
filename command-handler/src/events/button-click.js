@@ -10,6 +10,7 @@ export default function button(app, handler) {
       // Extract the action ID from the event body
       const actionId = body.actions[0].action_id;
 
+      let commandName = null;
       // Check for an exact match first
       if (registeredButtons[actionId]) {
         commandName = registeredButtons[actionId].command;
