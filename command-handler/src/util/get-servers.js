@@ -1,5 +1,6 @@
 import 'dotenv/config';
 import axios from 'axios';
+import log from './logger.js';
 
 export default async function getServer() {
     const data = await axios.get('https://api.hetzner.cloud/v1/servers', {
@@ -8,7 +9,7 @@ export default async function getServer() {
         }
       })
       .catch(error => {
-        console.error('Error:', error);
+        log.error('Failed to get servers from hetzner', error);
       });
 
       return data;

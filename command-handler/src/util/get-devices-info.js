@@ -1,5 +1,6 @@
 import 'dotenv/config';
 import axios from 'axios';
+import log from './logger.js';
 
 export default async function getDevices(serverName = null) {
   //get all the devices from tailscale
@@ -9,7 +10,7 @@ export default async function getDevices(serverName = null) {
       }
     })
     .catch(error => {
-      console.error('Error:', error);
+      log.error('Failed to get devices from tailscale', error);
     });
 
     //loop through the devices and get a devideId, and deviceIp

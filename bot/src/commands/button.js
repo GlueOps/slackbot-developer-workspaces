@@ -1,9 +1,12 @@
+import logger from "command-handler/src/util/logger.js";
+
+const log = logger();
+
 export default {
     description: 'creates a button',
 
     button: ({ handler, body, response }) => {
-        console.log(body);
-        // console.log(handler);
+        log.info("Clicked the button", body.user)
         response({
             text: `<@${body.user.id}> clicked the Button`
         })
