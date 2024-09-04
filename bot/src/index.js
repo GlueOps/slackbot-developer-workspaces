@@ -14,7 +14,7 @@ const app = new App({
 });
 
 (async () => {
-    await app.start(process.env.PORT || 3000);
+    await app.start(process.env.BOLT_PORT || 3000);
     console.log('Bot is ready');
 
     new CH({
