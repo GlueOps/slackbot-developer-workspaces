@@ -36,31 +36,59 @@ If you would like to change the source code, or compile the slack Bot yourself:
 5. You can find an example.env file in bot/example.env. Steps to generate all the tokens required and set up the bot are below.
 
 ## Set up Slack App
-1. You will need to creat a [slack app](https://api.slack.com/apps)
+1. You will need to create a [slack app](https://api.slack.com/apps)
 
-2. Once you have created your Slack App, in the App credentials under Basic information,
+2. In the app creation progress, create new app from a manifest:
+
+```json
+{
+    "display_information": {
+        "name": "Dev Bot"
+    },
+    "features": {
+        "bot_user": {
+            "display_name": "Dev Bot",
+            "always_online": true
+        }
+    },
+    "oauth_config": {
+        "scopes": {
+            "bot": [
+                "channels:history",
+                "chat:write",
+                "groups:history",
+                "im:history",
+                "mpim:history",
+                "users:read.email",
+                "users:read"
+            ]
+        }
+    },
+    "settings": {
+        "event_subscriptions": {
+            "bot_events": [
+                "message.channels",
+                "message.groups",
+                "message.im",
+                "message.mpim"
+            ]
+        },
+        "interactivity": {
+            "is_enabled": true
+        },
+        "org_deploy_enabled": false,
+        "socket_mode_enabled": true,
+        "token_rotation_enabled": false
+    }
+}
+```
+
+3. Once you have created your Slack App, in the App credentials under Basic information,
 you will find your signing secret.
 
-3. Scroll down to App-Level-Tokens and generate a token with connections:write scope. This will be your app token
-
-4. In the left bar settings menu, select Socket Mode. You will need to enable this for the app to run in socket mode.
+4. Scroll down to App-Level-Tokens and generate a token with connections:write scope. This will be your app token
 
 5. In the left bar settings menu, Select Install App. This will generate your bot token for you.
-
-6. In the left bar settings menu, Select OAuth & Permissions. You will need to scroll down to Scopes and give access to the following Scopes
-   - channels:history
-   - chat:write
-   - groups:history
-   - im:history
-   - mpim:history
-   - users:read
-   - users:read.email
-
-7. In the left bar settings menu, Select Event Subscriptions. Enable events, and under Subscribe to bot events add the following Bot User Events:
-    - message.channels
-    - message.groups
-    - message.im
-    - message.mpim
 
 ## Set up Hetzner
 1. Navigate to hetzner [cloud](https://console.hetzner.cloud/projects)
