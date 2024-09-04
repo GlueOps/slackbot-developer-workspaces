@@ -36,8 +36,6 @@ export default {
       const userEmail = formatUser(info.user.profile.email);
       
       //hetzner api to create the server
-      
-      
       await axios.post('https://api.hetzner.cloud/v1/servers', 
         {
           "automount": false,
@@ -83,8 +81,7 @@ export default {
         }
       })
         .catch(error => {
-          console.error('There was an error setting tags in tailscale', axiosError(error));
-
+          log.error('There was an error setting tags in tailscale', axiosError(error));
       });
       //return info for tailscale
       app.client.chat.postEphemeral({

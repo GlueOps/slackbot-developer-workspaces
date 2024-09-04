@@ -1,7 +1,9 @@
 import path from 'path';
 import { fileURLToPath, pathToFileURL } from 'url';
-
+import logger from '../util/logger.js';
 import getFiles from '../util/get-files.js';
+
+const log = logger();
 
 export default class CommandHandler {
     //<commandName, commandObject>
@@ -31,7 +33,7 @@ export default class CommandHandler {
             const commandObject = (await import(filePath)).default;
 
             if (!commandObject) {
-                console.warn(`Command ${commandName} is empty`);
+                log.warn(`Command ${commandName} is empty`);
                 continue;
             
             }
