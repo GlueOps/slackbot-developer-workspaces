@@ -1,5 +1,6 @@
 import cmdHandler from './cmd-handler/command-handler.js';
 import command from './events/legacy-command.js';
+import button from './events/button-click.js';
 
 export default class CommandHandler {
     constructor({ app, commandsDir }) {
@@ -9,6 +10,7 @@ export default class CommandHandler {
         if (commandsDir) this._commandHandler = new cmdHandler(commandsDir, app, this);
 
         command(app, this);
+        button(app, this);
     }
     
     get commandHandler() {

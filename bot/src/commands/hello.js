@@ -9,7 +9,7 @@ export default {
         await delay(5000);
 
         response({
-            content: `Hey there <@${message.user}>!`
+            text: `Hey there <@${message.user}>!`
         })
     }
 }

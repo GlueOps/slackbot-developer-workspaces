@@ -4,7 +4,7 @@ export default {
     run: ({ response }) => {
 
         response({
-            content: `pong`
+            text: `pong`
         })
     }
 }
