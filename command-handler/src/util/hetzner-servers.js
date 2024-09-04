@@ -1,10 +1,13 @@
-import log from './logger.js';
+import logger from './logger.js';
 import axios from 'axios';
 import 'dotenv/config';
 import formatUser from './format-user.js';
 import getDevices from './get-devices-info.js';
 import getServer from './get-servers.js';
+import axiosError from './axios-error-handler.js';
 import { uniqueNamesGenerator, colors, animals } from 'unique-names-generator';
+
+const log = logger();
 
 const delay = (ms) => {
     return new Promise(resolve => setTimeout(resolve, ms));
@@ -58,7 +61,7 @@ export default {
         }
       })
       .catch(error => {
-        log.error('There was an error creating the server', error);
+        log.error('There was an error creating the server', axiosError(error));
       });
 
       //set 2 minute delay
@@ -80,7 +83,7 @@ export default {
         }
       })
         .catch(error => {
-          console.error('There was an error setting tags in tailscale', error);
+          console.error('There was an error setting tags in tailscale', axiosError(error));
 
       });
       //return info for tailscale
@@ -115,7 +118,7 @@ export default {
           }
         })
         .catch(error => {
-          log.error('Failed to delete device in tailscale', error);
+          log.error('Failed to delete device in tailscale', axiosError(error));
         });
 
         //delete server from hetzner
@@ -125,7 +128,7 @@ export default {
           }
         })
         .catch(error => {
-          log.error('Failed to delete the server in hetzner', error);
+          log.error('Failed to delete the server in hetzner', axiosError(error));
         });
 
         app.client.chat.postEphemeral({
@@ -208,7 +211,7 @@ export default {
             }
         })
         .catch(error => {
-        log.error('Error starting the server', error);
+        log.error('Error starting the server', axiosError(error));
         app.client.chat.postEphemeral({
             channel: `${body.channel.id}`,
             user: `${body.user.id}`,
@@ -232,7 +235,7 @@ export default {
             }
         })
         .catch(error => {
-        log.error('Error stopping the server', error);
+        log.error('Error stopping the server', axiosError(error));
         app.client.chat.postEphemeral({
             channel: `${body.channel.id}`,
             user: `${body.user.id}`,
