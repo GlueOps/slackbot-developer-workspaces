@@ -16,12 +16,15 @@ const delay = (ms) => {
 const region = "hel1";
 const serverType = 'cx42';
 const image = 'debian-12';
-const userData = `#cloud-config\nruncmd:\n  \ 
-      - ['sh', '-c', 'curl -fsSL https://tailscale.com/install.sh | sh']\n  \ 
-      - ['tailscale', 'up', '--authkey=${process.env.TAILSCALE_AUTH_KEY}']\n  \ 
-      - ['tailscale', 'set', '--ssh']\n  \ 
-      - ['tailscale', 'set', '--accept-routes']\n  \ 
-      - ['passwd', '-d', 'root']`
+const userData = `
+#cloud-config
+runcmd:
+  - ['sh', '-c', 'curl -fsSL https://tailscale.com/install.sh | sh']
+  - ['tailscale', 'up', '--authkey=${process.env.TAILSCALE_AUTH_KEY}']
+  - ['tailscale', 'set', '--ssh']
+  - ['tailscale', 'set', '--accept-routes']
+  - ['passwd', '-d', 'root']
+`
 
 export default {
     //create the hetzner server
