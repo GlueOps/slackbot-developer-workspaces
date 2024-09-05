@@ -15,7 +15,7 @@ while the bolt server listens on port 3000 by default. Read more in
 ### Steps
 1. pull down the latest image from ghcr
 
-2. You can then run the bot `docker run --env-file <path-to-.env-file -d -p 5000:5000 -p 3000:3000 --name slack-bot <ghcr image>`
+2. You can then run the bot `docker run --env-file <path-to-.env-file -d -p 5000:5000 -p 3000:3000 --name dev-bot <ghcr image>`
 **If you change the bolt port or the server port, make sure to update that in the docker command**
 
 3. You can find an example.env file in bot/example.env. Steps to generate all the tokens required and set up the bot are below.
@@ -30,7 +30,7 @@ If you would like to change the source code, or compile the slack Bot yourself:
 3. Compile the bot code
 `docker build -t <DOCKER_IMAGE_NAME> .`
 
-4. You can then run the bot `docker run --env-file <path-to-.env-file -d -p 5000:5000 -p 3000:3000 --name slack-bot <ghcr image>`
+4. You can then run the bot `docker run --env-file <path-to-.env-file -d -p 5000:5000 -p 3000:3000 --name dev-bot <ghcr image>`
 **If you change the bolt port or the server port, make sure to update that in the docker command**
 
 5. You can find an example.env file in bot/example.env. Steps to generate all the tokens required and set up the bot are below.
