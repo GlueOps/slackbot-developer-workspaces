@@ -76,7 +76,7 @@ export default {
             'Content-Type': 'application/json'
           }
         });
-      } catch {
+      } catch (error) {
         log.error('There was an error creating the server', axiosError(error));
 
         app.client.chat.postEphemeral({
@@ -107,7 +107,7 @@ export default {
             'Content-Type': 'application/json'
           }
         });
-      } catch {
+      } catch (error) {
         log.error('There was an error setting tags in tailscale', axiosError(error));
 
         app.client.chat.postEphemeral({
