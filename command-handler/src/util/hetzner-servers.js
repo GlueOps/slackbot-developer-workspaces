@@ -14,54 +14,80 @@ const delay = (ms) => {
   }
   
 const region = "hel1";
-const userData = `#cloud-config\nruncmd:\n  - ['sh', '-c', 'curl -fsSL https://tailscale.com/install.sh | sh']\n  - ['tailscale', 'up', '--authkey=${process.env.TAILSCALE_AUTH_KEY}']\n  - ['tailscale', 'set', '--ssh']\n  - ['tailscale', 'set', '--accept-routes']\n  - ['passwd', '-d', 'root']`
+const serverType = 'cx42';
+const image = 'debian-12';
+const userData = `#cloud-config\nruncmd:\n  \ 
+      - ['sh', '-c', 'curl -fsSL https://tailscale.com/install.sh | sh']\n  \ 
+      - ['tailscale', 'up', '--authkey=${process.env.TAILSCALE_AUTH_KEY}']\n  \ 
+      - ['tailscale', 'set', '--ssh']\n  \ 
+      - ['tailscale', 'set', '--accept-routes']\n  \ 
+      - ['passwd', '-d', 'root']`
 
 export default {
     //create the hetzner server
     createServer: async ({ app, body }) => {
         //auto generate the name
     const serverName = uniqueNamesGenerator({ 
-        dictionaries: [colors, animals ],
+        dictionaries: [ colors, animals ],
         separator: '-'
       });
 
       // Call the users.info method using the WebClient
-      const info = await app.client.users.info({
-        user: body.user.id
-      })
-      .catch(error => {
+      let info;
+      try {
+        info = await app.client.users.info({
+          user: body.user.id
+        });
+      } catch (error) {
         log.error('There was an error calling the user.info method in slack', error);
-      });
 
+        app.client.chat.postEphemeral({
+          channel: `${body.channel.id}`,
+          user: `${body.user.id}`,
+          text: `Failed to get user info from slack`
+        });
+
+        return;
+      }
+    
       const userEmail = formatUser(info.user.profile.email);
       
       //hetzner api to create the server
-      await axios.post('https://api.hetzner.cloud/v1/servers', 
-        {
-          "automount": false,
-          "image": "debian-12",
-          "labels": {
-            "owner": `${userEmail}`
-          },
-          "location": `${region}`,
-          "name": `${serverName}`,
-          "public_net": {
-            "enable_ipv4": true,
-            "enable_ipv6": false
-          },
-          "server_type": "cx42",
-          "start_after_create": true,
-          "user_data": userData
-        }, {
-        headers: {
-          'Authorization': `Bearer ${process.env.HETZNER_API_TOKEN}`,
-          'Content-Type': 'application/json'
-        }
-      })
-      .catch(error => {
+      try {
+        await axios.post('https://api.hetzner.cloud/v1/servers', 
+          {
+            "automount": false,
+            "image": image,
+            "labels": {
+              "owner": userEmail
+            },
+            "location": region,
+            "name": serverName,
+            "public_net": {
+              "enable_ipv4": true,
+              "enable_ipv6": false
+            },
+            "server_type": serverType,
+            "start_after_create": true,
+            "user_data": userData
+          }, {
+          headers: {
+            'Authorization': `Bearer ${process.env.HETZNER_API_TOKEN}`,
+            'Content-Type': 'application/json'
+          }
+        });
+      } catch {
         log.error('There was an error creating the server', axiosError(error));
-      });
 
+        app.client.chat.postEphemeral({
+          channel: `${body.channel.id}`,
+          user: `${body.user.id}`,
+          text: `Failed to create a server in hetzner.`
+        });
+
+        return;
+      }
+    
       //set 2 minute delay
       await delay(1000 * 60 * 2);
 
@@ -69,20 +95,28 @@ export default {
       const { deviceId, deviceIP } = await getDevices(serverName);
 
       //set tag in tailscale
-      await axios.post(`https://api.tailscale.com/api/v2/device/${deviceId}/tags`, 
-        {
-          "tags": [
-            `tag:${userEmail}`
-          ]
-        }, {
-        headers: {
-          'Authorization': `Bearer ${process.env.TAILSCALE_API_TOKEN}`,
-          'Content-Type': 'application/json'
-        }
-      })
-        .catch(error => {
-          log.error('There was an error setting tags in tailscale', axiosError(error));
-      });
+      try {
+        await axios.post(`https://api.tailscale.com/api/v2/device/${deviceId}/tags`, 
+          {
+            "tags": [
+              `tag:${userEmail}`
+            ]
+          }, {
+          headers: {
+            'Authorization': `Bearer ${process.env.TAILSCALE_API_TOKEN}`,
+            'Content-Type': 'application/json'
+          }
+        });
+      } catch {
+        log.error('There was an error setting tags in tailscale', axiosError(error));
+
+        app.client.chat.postEphemeral({
+          channel: `${body.channel.id}`,
+          user: `${body.user.id}`,
+          text: `Failed to set tags in tailscale.`
+        });
+      }
+
       //return info for tailscale
       app.client.chat.postEphemeral({
         channel: `${body.channel.id}`,
@@ -116,23 +150,36 @@ export default {
         })
         .catch(error => {
           log.error('Failed to delete device in tailscale', axiosError(error));
+
+          app.client.chat.postEphemeral({
+            channel: `${body.channel.id}`,
+            user: `${body.user.id}`,
+            text: `Failed to delete Server: ${serverName} from Tailscale`
+          });
         });
 
         //delete server from hetzner
-        await axios.delete(`https://api.hetzner.cloud/v1/servers/${vmid}`, {
-          headers: {
-            'Authorization': `Bearer ${process.env.HETZNER_API_TOKEN}`
-          }
-        })
-        .catch(error => {
-          log.error('Failed to delete the server in hetzner', axiosError(error));
-        });
+        try {
+          await axios.delete(`https://api.hetzner.cloud/v1/servers/${vmid}`, {
+            headers: {
+              'Authorization': `Bearer ${process.env.HETZNER_API_TOKEN}`
+            }
+          });
 
-        app.client.chat.postEphemeral({
-          channel: `${body.channel.id}`,
-          user: `${body.user.id}`,
-          text: `Server: ${serverName} has been deleted.`
-        });
+          app.client.chat.postEphemeral({
+            channel: `${body.channel.id}`,
+            user: `${body.user.id}`,
+            text: `Server: ${serverName} has been deleted.`
+          });
+        } catch (error) {
+          log.error('Failed to delete the server in hetzner', axiosError(error));
+
+          app.client.chat.postEphemeral({
+            channel: `${body.channel.id}`,
+            user: `${body.user.id}`,
+            text: `Failed to delete Server: ${serverName} from Hetzner.`
+          });
+        }  
     },
 
     //list the servers
@@ -202,49 +249,54 @@ export default {
 
     //start a hetzner server
     startServer: async ({ app, body, vmid }) => {
-        await axios.post(`https://api.hetzner.cloud/v1/servers/${vmid}/actions/poweron`, null, {
+        try {
+          await axios.post(`https://api.hetzner.cloud/v1/servers/${vmid}/actions/poweron`, null, {
             headers: {
               'Authorization': `Bearer ${process.env.HETZNER_API_TOKEN}`
             }
-        })
-        .catch(error => {
-        log.error('Error starting the server', axiosError(error));
+        });
+
         app.client.chat.postEphemeral({
-            channel: `${body.channel.id}`,
-            user: `${body.user.id}`,
-            text: `Server Id: ${vmid} failed to start.`
-        });
-        return;
-        });
-        
-        app.client.chat.postEphemeral({
-        channel: `${body.channel.id}`,
-        user: `${body.user.id}`,
-        text: `Server Id: ${vmid} has been started.`
-        });
+          channel: `${body.channel.id}`,
+          user: `${body.user.id}`,
+          text: `Server Id: ${vmid} has been started.`
+          });
+
+        } catch (error) {
+          log.error('Error starting the server', axiosError(error));
+          app.client.chat.postEphemeral({
+              channel: `${body.channel.id}`,
+              user: `${body.user.id}`,
+              text: `Server Id: ${vmid} failed to start.`
+          });
+
+          return;
+        }
     },
 
     //stop a hetzner server
     stopServer: async ({ app, body, vmid }) => {
-        await axios.post(`https://api.hetzner.cloud/v1/servers/${vmid}/actions/poweroff`, null, {
+        try {
+          await axios.post(`https://api.hetzner.cloud/v1/servers/${vmid}/actions/poweroff`, null, {
             headers: {
               'Authorization': `Bearer ${process.env.HETZNER_API_TOKEN}`
             }
-        })
-        .catch(error => {
-        log.error('Error stopping the server', axiosError(error));
-        app.client.chat.postEphemeral({
+          });
+
+          app.client.chat.postEphemeral({
             channel: `${body.channel.id}`,
             user: `${body.user.id}`,
-            text: `Server Id: ${vmid} failed to stop.`
-        });
-        return;
-        });
-        
-        app.client.chat.postEphemeral({
-        channel: `${body.channel.id}`,
-        user: `${body.user.id}`,
-        text: `Server Id: ${vmid} has been stopped.`
-        });
+            text: `Server Id: ${vmid} has been stopped.`
+          });
+        } catch (error) {
+          log.error('Error stopping the server', axiosError(error));
+          app.client.chat.postEphemeral({
+              channel: `${body.channel.id}`,
+              user: `${body.user.id}`,
+              text: `Server Id: ${vmid} failed to stop.`
+          });
+          
+          return;
+        }
     }
 }
