@@ -1,5 +1,5 @@
 import pkg from '@slack/bolt'
-const { App, LogLevel } = pkg;
+const { App } = pkg;
 import CH from 'command-handler';
 import path from 'path';
 import 'dotenv/config';
@@ -22,7 +22,6 @@ const app = new App({
     signingSecret: process.env.SIGNING_SECRET,
     socketMode: true,
     appToken: process.env.APP_TOKEN,
-    logLevel: LogLevel.TRACE,
     logger: customLogger,
 });
 
