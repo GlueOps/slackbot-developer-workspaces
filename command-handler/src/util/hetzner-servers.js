@@ -78,7 +78,7 @@ export default {
       app.client.chat.postEphemeral({
         channel: `${body.channel.id}`,
         user: `${body.user.id}`,
-        text: `Creating the server with image: ${image} This will take about 4 minutes.`
+        text: `Creating the server with image: ${image.description} This will take about 4 minutes.`
       });
       
       //hetzner api to create the server
@@ -86,7 +86,7 @@ export default {
         await axios.post('https://api.hetzner.cloud/v1/servers', 
           {
             "automount": false,
-            "image": image,
+            "image": image.id,
             "labels": {
               "owner": userEmail
             },
