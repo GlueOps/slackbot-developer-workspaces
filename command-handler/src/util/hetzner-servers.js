@@ -78,7 +78,7 @@ export default {
       app.client.chat.postEphemeral({
         channel: `${body.channel.id}`,
         user: `${body.user.id}`,
-        text: `Creating the server with image: ${image.description} This will take about 4 minutes.`
+        text: `Creating the server with image: ${image.description} This will take about 5 minutes.`
       });
       
       //hetzner api to create the server
@@ -117,8 +117,8 @@ export default {
         return;
       }
     
-      //set 4 minute delay
-      await delay(1000 * 60 * 4);
+      //set 5 minute delay
+      await delay(1000 * 60 * 5);
 
       //get servers and info from tailscale
       const { deviceId, deviceIP } = await getDevices(serverName);
