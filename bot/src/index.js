@@ -22,7 +22,7 @@ const app = new App({
     signingSecret: process.env.SIGNING_SECRET,
     socketMode: true,
     appToken: process.env.APP_TOKEN,
-    logLevel: LogLevel.TRACE,
+    LogLevel: LogLevel.DEBUG,
     logger: customLogger,
 });
 
