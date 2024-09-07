@@ -116,35 +116,54 @@ export default {
 
         return;
       }
-    
-      //set 5 minute delay
-      await delay(1000 * 60 * 5);
+
+      const maxRetries = 20;
+      let attempts;
+
+      for (attempts = 1; attempts <= maxRetries; attempts++) {
+        //set tag in tailscale
+        try {
+          //wait 30 seconds
+          await delay(1000 * 30);
+
+          //get servers and info from tailscale
+          const { deviceId } = await getDevices(serverName);
+
+          await axios.post(`https://api.tailscale.com/api/v2/device/${deviceId}/tags`, 
+            {
+              "tags": [
+                `tag:${userEmail}`
+              ]
+            }, {
+            headers: {
+              'Authorization': `Bearer ${process.env.TAILSCALE_API_TOKEN}`,
+              'Content-Type': 'application/json'
+            }
+          });
+
+          //break out of the function if successful
+          break;
+        } catch (error) {
+          log.info(`Attempt ${attempts} Failed. Backing off for 30 seconds`)
+        }
+      }
+
+      if (attempts === maxRetries) {
+        try {
+          throw new Error(`Failed to set tags in tailscale after ${attempts} retries`);
+        } catch (error) {
+          log.error({message: error.message, stack: error.stack});
+          app.client.chat.postEphemeral({
+            channel: `${body.channel.id}`,
+            user: `${body.user.id}`,
+            text: `Failed to set tags in tailscale`
+          });
+          return;
+        }
+      }
 
       //get servers and info from tailscale
-      const { deviceId, deviceIP } = await getDevices(serverName);
-
-      //set tag in tailscale
-      try {
-        await axios.post(`https://api.tailscale.com/api/v2/device/${deviceId}/tags`, 
-          {
-            "tags": [
-              `tag:${userEmail}`
-            ]
-          }, {
-          headers: {
-            'Authorization': `Bearer ${process.env.TAILSCALE_API_TOKEN}`,
-            'Content-Type': 'application/json'
-          }
-        });
-      } catch (error) {
-        log.error('There was an error setting tags in tailscale', axiosError(error));
-
-        app.client.chat.postEphemeral({
-          channel: `${body.channel.id}`,
-          user: `${body.user.id}`,
-          text: `Failed to set tags in tailscale.`
-        });
-      }
+      const { deviceIP } = await getDevices(serverName);
 
       //return info for tailscale
       app.client.chat.postEphemeral({
