@@ -5,6 +5,8 @@ import formatUser from './format-user.js';
 import getDevices from './get-devices-info.js';
 import getServer from './get-servers.js';
 import axiosError from './axios-error-handler.js';
+import getLatestTag from './get-latest-tag.js';
+import getHetznerImages from './get-hetzner-images.js';
 import { uniqueNamesGenerator, colors, animals } from 'unique-names-generator';
 
 const log = logger();
@@ -15,11 +17,9 @@ const delay = (ms) => {
   
 const region = "hel1";
 const serverType = 'cx42';
-const image = 'debian-12';
 const userData = `
 #cloud-config
 runcmd:
-  - ['sh', '-c', 'curl -fsSL https://tailscale.com/install.sh | sh']
   - ['tailscale', 'up', '--authkey=${process.env.TAILSCALE_AUTH_KEY}']
   - ['tailscale', 'set', '--ssh']
   - ['tailscale', 'set', '--accept-routes']
@@ -54,6 +54,32 @@ export default {
       }
     
       const userEmail = formatUser(info.user.profile.email);
+
+      //get the hetzner images
+      const images = await getHetznerImages();
+
+      //get latest tag from github
+      const latestTag = await getLatestTag();
+
+      //return if it fails to get the images.
+      if (!images) {
+        app.client.chat.postEphemeral({
+          channel: `${body.channel.id}`,
+          user: `${body.user.id}`,
+          text: `Failed to get image data`
+        });
+
+        return;
+      }
+
+      const image = images.find(obj => obj.description === latestTag);
+
+      //post a status message
+      app.client.chat.postEphemeral({
+        channel: `${body.channel.id}`,
+        user: `${body.user.id}`,
+        text: `Creating the server with image: ${image} This will take about 4 minutes.`
+      });
       
       //hetzner api to create the server
       try {
@@ -91,8 +117,8 @@ export default {
         return;
       }
     
-      //set 2 minute delay
-      await delay(1000 * 60 * 2);
+      //set 4 minute delay
+      await delay(1000 * 60 * 4);
 
       //get servers and info from tailscale
       const { deviceId, deviceIP } = await getDevices(serverName);
