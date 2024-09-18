@@ -36,10 +36,10 @@ export default {
         }
     },
     
-    run: async ({ message, app }) => {
+    run: async ({ event, app }) => {
       app.client.chat.postEphemeral({
-        channel: `${message.channel}`,
-        user: `${message.user}`,
+        channel: `${event.channel}`,
+        user: `${event.user}`,
         blocks: [
           {
             "type": "section",

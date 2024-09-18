@@ -13,15 +13,14 @@ WORKDIR /app/command-handler
 RUN npm ci
 RUN npm link
 
-# Install dependencies and link server globally
+# Install dependencies for express server
 WORKDIR /app/server
 RUN npm ci
-RUN npm link
 
 # Go to bot directory, install dependencies, and link both command-handler and server
 WORKDIR /app/bot
 RUN npm ci
-RUN npm link command-handler server
+RUN npm link command-handler
 
 # Expose port 5000
 EXPOSE 5000

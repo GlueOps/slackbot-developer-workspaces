@@ -12,7 +12,7 @@ export default {
         })
     },
     
-    run: ({ response, message }) => {
+    run: ({ response, event }) => {
 
         response({
             blocks: [
@@ -20,7 +20,7 @@ export default {
                   "type": "section",
                   "text": {
                     "type": "mrkdwn",
-                    "text": `Hey there <@${message.user}>!`
+                    "text": `Hey there <@${event.user}>!`
                   },
                   "accessory": {
                     "type": "button",
@@ -32,7 +32,7 @@ export default {
                   }
                 }
               ],
-              text: `Hey there <@${message.user}>!`
+              text: `Hey there <@${event.user}>!`
         })
     }
 }

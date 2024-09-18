@@ -1,9 +1,9 @@
 import pkg from '@slack/bolt'
-const { App, LogLevel } = pkg;
+const { App, ExpressReceiver, LogLevel } = pkg;
 import CH from 'command-handler';
 import path from 'path';
 import 'dotenv/config';
-import 'server';
+import server from '../../server/server.js';
 import logger from 'command-handler/src/util/logger.js';
 
 const log = logger();
@@ -17,19 +17,21 @@ const customLogger = {
     error: (message) => log.error(message),
 };
 
+//receiver to integrate express with bolt
+const receiver = new ExpressReceiver({
+    signingSecret: process.env.SIGNING_SECRET,
+});
+
 const app = new App({
     token: process.env.BOT_TOKEN,
-    signingSecret: process.env.SIGNING_SECRET,
-    socketMode: true,
+    receiver,
     appToken: process.env.APP_TOKEN,
     LogLevel: LogLevel.DEBUG,
     logger: customLogger,
 });
 
 (async () => {
-    await app.start(process.env.BOLT_PORT || 3000);
-    log.info('Bot is ready');
-
+    server(receiver);
     new CH({
         app,
         featuresDir: path.join(process.cwd(), 'src', 'features'),

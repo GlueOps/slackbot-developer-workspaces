@@ -66,6 +66,7 @@ If you would like to change the source code, or compile the slack Bot yourself:
     },
     "settings": {
         "event_subscriptions": {
+            "request_url": "<your server's url>",
             "bot_events": [
                 "message.channels",
                 "message.groups",
@@ -74,10 +75,11 @@ If you would like to change the source code, or compile the slack Bot yourself:
             ]
         },
         "interactivity": {
-            "is_enabled": true
+            "is_enabled": true,
+            "request_url": "<your server's url>"
         },
         "org_deploy_enabled": false,
-        "socket_mode_enabled": true,
+        "socket_mode_enabled": false,
         "token_rotation_enabled": false
     }
 }
