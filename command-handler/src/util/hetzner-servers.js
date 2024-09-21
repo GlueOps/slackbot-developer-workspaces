@@ -5,6 +5,7 @@ import formatUser from './format-user.js';
 import getDevices from './get-devices-info.js';
 import getServer from './get-servers.js';
 import axiosError from './axios-error-handler.js';
+import getHetznerImages from './get-hetzner-images.js';
 import { uniqueNamesGenerator, colors, animals } from 'unique-names-generator';
 
 const log = logger();
@@ -15,11 +16,9 @@ const delay = (ms) => {
   
 const region = "hel1";
 const serverType = 'cx42';
-const image = 'debian-12';
 const userData = `
 #cloud-config
 runcmd:
-  - ['sh', '-c', 'curl -fsSL https://tailscale.com/install.sh | sh']
   - ['tailscale', 'up', '--authkey=${process.env.TAILSCALE_AUTH_KEY}']
   - ['tailscale', 'set', '--ssh']
   - ['tailscale', 'set', '--accept-routes']
@@ -28,8 +27,8 @@ runcmd:
 
 export default {
     //create the hetzner server
-    createServer: async ({ app, body }) => {
-        //auto generate the name
+    createServer: async ({ app, body, imageID, imageName }) => {
+    //auto generate the name
     const serverName = uniqueNamesGenerator({ 
         dictionaries: [ colors, animals ],
         separator: '-'
@@ -54,13 +53,20 @@ export default {
       }
     
       const userEmail = formatUser(info.user.profile.email);
+
+      //post a status message
+      app.client.chat.postEphemeral({
+        channel: `${body.channel.id}`,
+        user: `${body.user.id}`,
+        text: `Creating the server with image: ${imageName} This will take about 5 minutes.`
+      });
       
       //hetzner api to create the server
       try {
         await axios.post('https://api.hetzner.cloud/v1/servers', 
           {
             "automount": false,
-            "image": image,
+            "image": imageID,
             "labels": {
               "owner": userEmail
             },
@@ -90,35 +96,54 @@ export default {
 
         return;
       }
-    
-      //set 2 minute delay
-      await delay(1000 * 60 * 2);
+
+      const maxRetries = 20;
+      let attempts;
+
+      for (attempts = 1; attempts <= maxRetries; attempts++) {
+        //set tag in tailscale
+        try {
+          //wait 30 seconds
+          await delay(1000 * 30);
+
+          //get servers and info from tailscale
+          const { deviceId } = await getDevices(serverName);
+
+          await axios.post(`https://api.tailscale.com/api/v2/device/${deviceId}/tags`, 
+            {
+              "tags": [
+                `tag:${userEmail}`
+              ]
+            }, {
+            headers: {
+              'Authorization': `Bearer ${process.env.TAILSCALE_API_TOKEN}`,
+              'Content-Type': 'application/json'
+            }
+          });
+
+          //break out of the function if successful
+          break;
+        } catch (error) {
+          log.info(`Attempt ${attempts} Failed. Backing off for 30 seconds`)
+        }
+      }
+
+      if (attempts === maxRetries) {
+        try {
+          throw new Error(`Failed to set tags in tailscale after ${attempts} retries`);
+        } catch (error) {
+          log.error({message: error.message, stack: error.stack});
+          app.client.chat.postEphemeral({
+            channel: `${body.channel.id}`,
+            user: `${body.user.id}`,
+            text: `Failed to set tags in tailscale`
+          });
+          return;
+        }
+      }
 
       //get servers and info from tailscale
-      const { deviceId, deviceIP } = await getDevices(serverName);
-
-      //set tag in tailscale
-      try {
-        await axios.post(`https://api.tailscale.com/api/v2/device/${deviceId}/tags`, 
-          {
-            "tags": [
-              `tag:${userEmail}`
-            ]
-          }, {
-          headers: {
-            'Authorization': `Bearer ${process.env.TAILSCALE_API_TOKEN}`,
-            'Content-Type': 'application/json'
-          }
-        });
-      } catch (error) {
-        log.error('There was an error setting tags in tailscale', axiosError(error));
-
-        app.client.chat.postEphemeral({
-          channel: `${body.channel.id}`,
-          user: `${body.user.id}`,
-          text: `Failed to set tags in tailscale.`
-        });
-      }
+      const { deviceIP } = await getDevices(serverName);
 
       //return info for tailscale
       app.client.chat.postEphemeral({
@@ -301,5 +326,52 @@ export default {
           
           return;
         }
+    },
+
+    //code to build button UI
+    selectImage: async ({app, body }) => {
+
+      //get the hetzner images
+      const images = await getHetznerImages();
+
+      //return if it fails to get the images.
+      if (!images) {
+        app.client.chat.postEphemeral({
+          channel: `${body.channel.id}`,
+          user: `${body.user.id}`,
+          text: `Failed to get image data`
+        });
+
+        return;
+      }
+
+      //build button for user to select
+      app.client.chat.postEphemeral({
+        channel: `${body.channel.id}`,
+        user: `${body.user.id}`,
+        text: `Select an image:`
+      });
+      for (const image of images) {
+        app.client.chat.postEphemeral({
+        channel: `${body.channel.id}`,
+        user: `${body.user.id}`,
+        blocks: [
+            {
+            "type": "actions",
+            "elements": [
+                {
+                "type": "button",
+                "text": {
+                    "type": "plain_text",
+                    "text": `${image.description}`
+                },
+                "action_id": `button_create_image_${image.description}_${image.id}`
+                },
+            ]
+            }
+        ],
+        text: "Select an image:"
+        })
+      }
     }
 }

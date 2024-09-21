@@ -2,8 +2,9 @@ import runCommand from '../cmd-handler/run-command.js';
 
 export default function command(app, handler) {
     const prefix = '!'
-    app.message(async ({ message, say }) => {
-        const content = message.text;
+    app.event('message', async ({ event, say }) => {
+
+        const content = event.text;
         if (!content.startsWith(prefix)) return;
 
         const args = content.slice(prefix.length).trim().split(/ +/g);
@@ -15,9 +16,9 @@ export default function command(app, handler) {
             commandName,
             handler,
             app,
-            message,
+            event,
             say,
             args
         })
-    })
+    });
 }

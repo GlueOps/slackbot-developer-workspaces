@@ -8,8 +8,8 @@ export default {
           //list hetzner servers
           hetzner.listServers({ app, body })
         } else if (actionId === 'button_create_vm') {
-          //create the hetzner server
-          hetzner.createServer({ app, body });
+          //select the hetzner server to create before calling the create server
+          hetzner.selectImage({ app, body });
 
         } else if (actionId.startsWith('button_start')) {
           const vmid = actionId.split('_')[2];
@@ -29,6 +29,10 @@ export default {
           //delete the server
           hetzner.deleteServer({app, body, serverName})
 
+        } else if (actionId.startsWith('button_create_image')) {
+          const imageName = actionId.split('_')[3];
+          const imageID = actionId.split('_')[4];
+          hetzner.createServer({ app, body, imageID, imageName });
         } else {
             response({
                 text: `This button is registered with the vm command, but does not have an action associated with it.`
@@ -36,10 +40,10 @@ export default {
         }
     },
     
-    run: async ({ message, app }) => {
+    run: async ({ event, app }) => {
       app.client.chat.postEphemeral({
-        channel: `${message.channel}`,
-        user: `${message.user}`,
+        channel: `${event.channel}`,
+        user: `${event.user}`,
         blocks: [
           {
             "type": "section",

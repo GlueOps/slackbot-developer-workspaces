@@ -5,11 +5,11 @@ const delay = (ms) => {
 export default {
     description: 'Replies with Hello',
 
-    run: async ({ response, message }) => {
+    run: async ({ response, event }) => {
         await delay(5000);
 
         response({
-            text: `Hey there <@${message.user}>!`
+            text: `Hey there <@${event.user}>!`
         })
     }
 }

@@ -23,6 +23,10 @@ const registeredButtons = {
     "^button_delete_": {
         command: 'vm',
         isRegex: true,
+    },
+    "^button_create_image_": {
+        command: 'vm',
+        isRegex: true,
     }
 };
 
