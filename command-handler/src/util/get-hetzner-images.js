@@ -5,7 +5,7 @@ import axiosError from "./axios-error-handler.js";
 const log = logger();
 
 export default async function getHetznerImages() {
-    const response = await axios.get(`https://api.hetzner.cloud/v1/images?type=snapshot`, {
+    const response = await axios.get(`https://api.hetzner.cloud/v1/images?per_page=5&page=1&sort=created:desc&type=snapshot`, {
         headers: {
           'Authorization': `Bearer ${process.env.HETZNER_API_TOKEN}`
         }

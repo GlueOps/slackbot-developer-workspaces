@@ -5,7 +5,6 @@ import formatUser from './format-user.js';
 import getDevices from './get-devices-info.js';
 import getServer from './get-servers.js';
 import axiosError from './axios-error-handler.js';
-import getLatestTag from './get-latest-tag.js';
 import getHetznerImages from './get-hetzner-images.js';
 import { uniqueNamesGenerator, colors, animals } from 'unique-names-generator';
 
@@ -28,8 +27,8 @@ runcmd:
 
 export default {
     //create the hetzner server
-    createServer: async ({ app, body }) => {
-        //auto generate the name
+    createServer: async ({ app, body, imageID, imageName }) => {
+    //auto generate the name
     const serverName = uniqueNamesGenerator({ 
         dictionaries: [ colors, animals ],
         separator: '-'
@@ -55,30 +54,11 @@ export default {
     
       const userEmail = formatUser(info.user.profile.email);
 
-      //get the hetzner images
-      const images = await getHetznerImages();
-
-      //get latest tag from github
-      const latestTag = await getLatestTag();
-
-      //return if it fails to get the images.
-      if (!images) {
-        app.client.chat.postEphemeral({
-          channel: `${body.channel.id}`,
-          user: `${body.user.id}`,
-          text: `Failed to get image data`
-        });
-
-        return;
-      }
-
-      const image = images.find(obj => obj.description === latestTag);
-
       //post a status message
       app.client.chat.postEphemeral({
         channel: `${body.channel.id}`,
         user: `${body.user.id}`,
-        text: `Creating the server with image: ${image.description} This will take about 5 minutes.`
+        text: `Creating the server with image: ${imageName} This will take about 5 minutes.`
       });
       
       //hetzner api to create the server
@@ -86,7 +66,7 @@ export default {
         await axios.post('https://api.hetzner.cloud/v1/servers', 
           {
             "automount": false,
-            "image": image.id,
+            "image": imageID,
             "labels": {
               "owner": userEmail
             },
@@ -346,5 +326,52 @@ export default {
           
           return;
         }
+    },
+
+    //code to build button UI
+    selectImage: async ({app, body }) => {
+
+      //get the hetzner images
+      const images = await getHetznerImages();
+
+      //return if it fails to get the images.
+      if (!images) {
+        app.client.chat.postEphemeral({
+          channel: `${body.channel.id}`,
+          user: `${body.user.id}`,
+          text: `Failed to get image data`
+        });
+
+        return;
+      }
+
+      //build button for user to select
+      app.client.chat.postEphemeral({
+        channel: `${body.channel.id}`,
+        user: `${body.user.id}`,
+        text: `Select an image:`
+      });
+      for (const image of images) {
+        app.client.chat.postEphemeral({
+        channel: `${body.channel.id}`,
+        user: `${body.user.id}`,
+        blocks: [
+            {
+            "type": "actions",
+            "elements": [
+                {
+                "type": "button",
+                "text": {
+                    "type": "plain_text",
+                    "text": `${image.description}`
+                },
+                "action_id": `button_create_image_${image.description}_${image.id}`
+                },
+            ]
+            }
+        ],
+        text: "Select an image:"
+        })
+      }
     }
 }
