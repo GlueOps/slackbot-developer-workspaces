@@ -5,8 +5,8 @@ import logger from './logger.js';
 
 const log = logger();
 
-export default async function getServer() {
-    const data = await axios.get('https://api.hetzner.cloud/v1/servers', {
+export default async function getServer(serverId = "") {
+    const data = await axios.get(`https://api.hetzner.cloud/v1/servers/${serverId}`, {
         headers: {
           'Authorization': `Bearer ${process.env.HETZNER_API_TOKEN}`
         }
