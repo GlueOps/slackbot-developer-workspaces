@@ -62,8 +62,9 @@ export default {
       });
       
       //hetzner api to create the server
+      let serverRes;
       try {
-        await axios.post('https://api.hetzner.cloud/v1/servers', 
+        serverRes = await axios.post('https://api.hetzner.cloud/v1/servers', 
           {
             "automount": false,
             "image": imageID,
@@ -97,18 +98,44 @@ export default {
         return;
       }
 
-      const maxRetries = 20;
+      let maxRetries = 20;
       let attempts;
 
       for (attempts = 1; attempts <= maxRetries; attempts++) {
-        //set tag in tailscale
-        try {
-          //wait 30 seconds
-          await delay(1000 * 30);
+        //wait 30 seconds
+        await delay(1000 * 30);
 
+        const server = await getServer(serverRes.data.server.id);
+
+        if (server.data.server.status === 'running') {
+          break;
+        } else {
+          log.info(`Attempt ${attempts} Failed. Backing off for 30 seconds`);
+        }
+      }
+
+      if (attempts === maxRetries) {
+        try {
+          throw new Error(`Failed to initialize server in hetzner after ${attempts} retries`);
+        } catch (error) {
+            log.error({message: error.message, stack: error.stack});
+            app.client.chat.postEphemeral({
+              channel: `${body.channel.id}`,
+              user: `${body.user.id}`,
+              text: `Failed to initialize server in Hetzner`
+            });
+            return;
+        } 
+      }
+
+    maxRetries = 4;  
+    for (attempts = 1; attempts <= maxRetries; attempts++) {
+        //wait 30 seconds
+        await delay(1000 * 30);
+        try {
           //get servers and info from tailscale
           const { deviceId } = await getDevices(serverName);
-
+  
           await axios.post(`https://api.tailscale.com/api/v2/device/${deviceId}/tags`, 
             {
               "tags": [
@@ -120,25 +147,23 @@ export default {
               'Content-Type': 'application/json'
             }
           });
-
-          //break out of the function if successful
           break;
         } catch (error) {
-          log.info(`Attempt ${attempts} Failed. Backing off for 30 seconds`)
-        }
+            log.info(`Attempt ${attempts} Failed. Backing off for 30 seconds`)
+          }
       }
 
       if (attempts === maxRetries) {
         try {
           throw new Error(`Failed to set tags in tailscale after ${attempts} retries`);
         } catch (error) {
-          log.error({message: error.message, stack: error.stack});
-          app.client.chat.postEphemeral({
-            channel: `${body.channel.id}`,
-            user: `${body.user.id}`,
-            text: `Failed to set tags in tailscale`
-          });
-          return;
+            log.error({message: error.message, stack: error.stack});
+            app.client.chat.postEphemeral({
+              channel: `${body.channel.id}`,
+              user: `${body.user.id}`,
+              text: `Failed to set tags in tailscale`
+            });
+            return;
         }
       }
 
