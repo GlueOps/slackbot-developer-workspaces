@@ -1,6 +1,6 @@
 import axios from "axios"
-import logger from "./logger.js"
-import axiosError from "./axios-error-handler.js";
+import logger from "../logger.js"
+import axiosError from "../axios-error-handler.js";
 
 const log = logger();
 

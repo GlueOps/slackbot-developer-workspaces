@@ -1,10 +1,11 @@
-import logger from './logger.js';
+import logger from '../logger.js';
 import axios from 'axios';
 import 'dotenv/config';
-import formatUser from './format-user.js';
-import getDevices from './get-devices-info.js';
+import formatUser from '../format-user.js';
+import getDevices from '../get-devices-info.js';
 import getServer from './get-servers.js';
-import axiosError from './axios-error-handler.js';
+import configUserData from '../get-user-data.js';
+import axiosError from '../axios-error-handler.js';
 import getHetznerImages from './get-hetzner-images.js';
 import { uniqueNamesGenerator, colors, animals } from 'unique-names-generator';
 
@@ -15,15 +16,7 @@ const delay = (ms) => {
   }
   
 const region = "hel1";
-const serverType = 'cx42';
-const userData = `
-#cloud-config
-runcmd:
-  - ['tailscale', 'up', '--authkey=${process.env.TAILSCALE_AUTH_KEY}']
-  - ['tailscale', 'set', '--ssh']
-  - ['tailscale', 'set', '--accept-routes']
-  - ['passwd', '-d', 'root']
-`
+const serverType = 'cpx41';
 
 export default {
     //create the hetzner server
@@ -79,7 +72,7 @@ export default {
             },
             "server_type": serverType,
             "start_after_create": true,
-            "user_data": userData
+            "user_data": configUserData(serverName)
           }, {
           headers: {
             'Authorization': `Bearer ${process.env.HETZNER_API_TOKEN}`,
@@ -249,6 +242,12 @@ export default {
 
         const userEmail = formatUser(info.user.profile.email);
 
+        app.client.chat.postEphemeral({
+          channel: `${body.channel.id}`,
+          user: `${body.user.id}`,
+          text: `Servers in Hetzner:`
+        });
+
         //list the servers and build the buttons
         for (const server of data.data.servers) {
             if (server.labels.owner === userEmail) {
@@ -273,7 +272,7 @@ export default {
                             "type": "plain_text",
                             "text": "Start"
                         },
-                        "action_id": `button_start_${server.id}`
+                        "action_id": `button_start_hetzner_${server.id}`
                         },
                         {
                         "type": "button",
@@ -281,7 +280,7 @@ export default {
                             "type": "plain_text",
                             "text": "Stop"
                         },
-                        "action_id": `button_stop_${server.id}`
+                        "action_id": `button_stop_hetzner_${server.id}`
                         },
                         {
                         "type": "button",
@@ -289,7 +288,7 @@ export default {
                             "type": "plain_text",
                             "text": "Delete"
                         },
-                        "action_id": `button_delete_${server.name}`
+                        "action_id": `button_delete_hetzner_${server.name}`
                         }
                     ]
                     }
@@ -390,7 +389,7 @@ export default {
                     "type": "plain_text",
                     "text": `${image.description}`
                 },
-                "action_id": `button_create_image_${image.description}_${image.id}`
+                "action_id": `button_create_image_hetzner_${image.description}_${image.id}`
                 },
             ]
             }
