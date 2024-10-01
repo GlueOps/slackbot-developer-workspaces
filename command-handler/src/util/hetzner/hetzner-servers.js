@@ -353,7 +353,7 @@ export default {
     },
 
     //code to build button UI
-    selectImage: async ({app, body }, data) => {
+    selectImage: async ({app, body, data }) => {
       //get the hetzner images
       const images = await getHetznerImages();
 
@@ -447,56 +447,38 @@ export default {
       }
     },
 
-    selectServer: async ({app, body }, data) => {
-      const { region } = data;
-      try {
-        const response = await axios.get('https://api.hetzner.cloud/v1/server_types', {
-          headers: {
-            'Authorization': `Bearer ${process.env.HETZNER_API_TOKEN}`
-          }
-        });
+    selectServer: async ({app, body, data }) => {
+      const serverTypes = process.env.HETZNER_SERVER_TYPES.split(',').map(server => server.trim()).filter(server => server);
     
-        const serverTypes = response.data.server_types;
-    
-        // Filter server types available in the specified region, with cpu_type as 'shared' and architecture not equal to 'arm'
-        const filteredServerTypes = serverTypes.filter(serverType => 
-          serverType.prices.some(price => price.location === region) && // Check for the specified region
-          serverType.cpu_type === 'shared' &&                           // Check if the CPU type is 'shared'
-          serverType.architecture !== 'arm'                             // Exclude servers with 'arm' architecture
-        );
-    
-        app.client.chat.postEphemeral({
-          channel: `${body.channel.id}`,
-          user: `${body.user.id}`,
-          text: `Select a server:`
-        });
+      app.client.chat.postEphemeral({
+        channel: `${body.channel.id}`,
+        user: `${body.user.id}`,
+        text: `Select a server:`
+      });
 
-        for (const serverType of filteredServerTypes) {
-          data.serverType = serverType.name;
-          app.client.chat.postEphemeral({
-          channel: `${body.channel.id}`,
-          user: `${body.user.id}`,
-          blocks: [
-            {
-            "type": "actions",
-            "elements": [
-                {
-                "type": "button",
-                "text": {
-                    "type": "plain_text",
-                    "text": `${serverType.name}`
-                },
-                "action_id": `button_select_hetzner_image`,
-                "value": JSON.stringify(data)
-                },
-              ]
-            }
-          ],
-          text: "Select a region:"
-          })
-        }
-      } catch (error) {
-        console.error('Error fetching server types:', error);
-      }
+      for (const serverType of serverTypes) {
+        data.serverType = serverType;
+        app.client.chat.postEphemeral({
+        channel: `${body.channel.id}`,
+        user: `${body.user.id}`,
+        blocks: [
+          {
+          "type": "actions",
+          "elements": [
+              {
+              "type": "button",
+              "text": {
+                  "type": "plain_text",
+                  "text": `${serverType}`
+              },
+              "action_id": `button_select_hetzner_image`,
+              "value": JSON.stringify(data)
+              },
+            ]
+          }
+        ],
+        text: "Select a server"
+        })
+      };
     }
 }

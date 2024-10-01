@@ -22,10 +22,8 @@ const delay = (ms) => {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-const instanceType = 't3a.large';
-
 export default {
-    createServer: async({ app, body, imageName, ami, region }) => {
+    createServer: async({ app, body, imageName, ami, region, instanceType }) => {
         //auto generate the name
         const serverName = uniqueNamesGenerator({ 
             dictionaries: [ colors, animals ],
@@ -330,7 +328,7 @@ export default {
         }
     },
 
-    selectImage: async({ app, body }, data) => {
+    selectImage: async({ app, body, data }) => {
         const { region } = data;
         //get the aws images
         const images = await getAwsImages({ region });
@@ -414,7 +412,7 @@ export default {
                       "type": "plain_text",
                       "text": `${region}`
                   },
-                  "action_id": `button_select_aws_image`,
+                  "action_id": `button_select_aws_server`,
                   "value": JSON.stringify({region})
                   },
               ]
@@ -423,5 +421,40 @@ export default {
           text: "Select a region:"
           })
         }
-      }
+    },
+
+    selectServer: async ({app, body, data }) => {
+        const instances = process.env.AWS_INSTANCES.split(',').map(instance => instance.trim()).filter(instance => instance);
+      
+        app.client.chat.postEphemeral({
+          channel: `${body.channel.id}`,
+          user: `${body.user.id}`,
+          text: `Select an instance:`
+        });
+  
+        for (const instance of instances) {
+          data.instanceType = instance;
+          app.client.chat.postEphemeral({
+          channel: `${body.channel.id}`,
+          user: `${body.user.id}`,
+          blocks: [
+            {
+            "type": "actions",
+            "elements": [
+                {
+                "type": "button",
+                "text": {
+                    "type": "plain_text",
+                    "text": `${instance}`
+                },
+                "action_id": `button_select_aws_image`,
+                "value": JSON.stringify(data)
+                },
+              ]
+            }
+          ],
+          text: "Select an instance"
+          })
+        };
+    }
 };

@@ -86,12 +86,12 @@ export default {
           const { serverName } = JSON.parse(body.actions[0].value);
 
           //delete the server
-          hetzner.deleteServer({app, body, serverName});
+          hetzner.deleteServer({ app, body, serverName });
           break;
         }
         case 'button_create_image_aws': {
-          const { imageName, ami, region } = JSON.parse(body.actions[0].value);
-          aws.createServer({ app, body, imageName, ami, region });
+          const { imageName, ami, region, instanceType } = JSON.parse(body.actions[0].value);
+          aws.createServer({ app, body, imageName, ami, region, instanceType });
           break;
         }
         case 'button_create_image_hetzner': {
@@ -112,25 +112,25 @@ export default {
         case 'button_select_hetzner_server': {
           const data = JSON.parse(body.actions[0].value);
           //select the hetzner server to create before calling the create server
-          hetzner.selectServer({ app, body }, data);
+          hetzner.selectServer({ app, body, data });
           break;
         }
         case 'button_select_aws_server': {
           const data = JSON.parse(body.actions[0].value);
           //select the asw server to create before calling the create server
-          aws.selectServer({ app, body }, data);
+          aws.selectServer({ app, body, data });
           break;
         }
         case 'button_select_hetzner_image': {
           const data = JSON.parse(body.actions[0].value);
           //select the hetzner server to create before calling the create server
-          hetzner.selectImage({ app, body }, data);
+          hetzner.selectImage({ app, body, data });
           break;
         }
         case 'button_select_aws_image': {
           const data = JSON.parse(body.actions[0].value);
           //select the asw server to create before calling the create server
-          aws.selectImage({ app, body, }, data);
+          aws.selectImage({ app, body, data });
           break;
         }
         default: {
