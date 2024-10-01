@@ -1,7 +1,7 @@
 import { EC2Client, DescribeImagesCommand } from "@aws-sdk/client-ec2";
 
-export default async function getAwsImages() {
-    const client = new EC2Client();
+export default async function getAwsImages({ region }) {
+    const client = new EC2Client({ region });
     const input = {
         Owners: ['self']
     };

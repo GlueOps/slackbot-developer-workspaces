@@ -13,14 +13,11 @@ const log = logger();
 
 const delay = (ms) => {
     return new Promise(resolve => setTimeout(resolve, ms));
-  }
-  
-const region = "hel1";
-const serverType = 'cpx41';
+}
 
 export default {
     //create the hetzner server
-    createServer: async ({ app, body, imageID, imageName }) => {
+    createServer: async ({ app, body, imageID, imageName, region, serverType }) => {
     //auto generate the name
     const serverName = uniqueNamesGenerator({ 
         dictionaries: [ colors, animals ],
@@ -272,7 +269,8 @@ export default {
                             "type": "plain_text",
                             "text": "Start"
                         },
-                        "action_id": `button_start_hetzner_${server.id}`
+                        "action_id": `button_start_hetzner`,
+                        "value": JSON.stringify({vmID: server.id})
                         },
                         {
                         "type": "button",
@@ -280,7 +278,8 @@ export default {
                             "type": "plain_text",
                             "text": "Stop"
                         },
-                        "action_id": `button_stop_hetzner_${server.id}`
+                        "action_id": `button_stop_hetzner`,
+                        "value": JSON.stringify({vmID: server.id})
                         },
                         {
                         "type": "button",
@@ -288,7 +287,8 @@ export default {
                             "type": "plain_text",
                             "text": "Delete"
                         },
-                        "action_id": `button_delete_hetzner_${server.name}`
+                        "action_id": `button_delete_hetzner`,
+                        "value": JSON.stringify({serverName: server.name})
                         }
                     ]
                     }
@@ -300,9 +300,9 @@ export default {
     },
 
     //start a hetzner server
-    startServer: async ({ app, body, vmid }) => {
+    startServer: async ({ app, body, vmID }) => {
         try {
-          await axios.post(`https://api.hetzner.cloud/v1/servers/${vmid}/actions/poweron`, null, {
+          await axios.post(`https://api.hetzner.cloud/v1/servers/${vmID}/actions/poweron`, null, {
             headers: {
               'Authorization': `Bearer ${process.env.HETZNER_API_TOKEN}`
             }
@@ -311,7 +311,7 @@ export default {
         app.client.chat.postEphemeral({
           channel: `${body.channel.id}`,
           user: `${body.user.id}`,
-          text: `Server Id: ${vmid} has been started.`
+          text: `Server Id: ${vmID} has been started.`
           });
 
         } catch (error) {
@@ -319,7 +319,7 @@ export default {
           app.client.chat.postEphemeral({
               channel: `${body.channel.id}`,
               user: `${body.user.id}`,
-              text: `Server Id: ${vmid} failed to start.`
+              text: `Server Id: ${vmID} failed to start.`
           });
 
           return;
@@ -327,9 +327,9 @@ export default {
     },
 
     //stop a hetzner server
-    stopServer: async ({ app, body, vmid }) => {
+    stopServer: async ({ app, body, vmID }) => {
         try {
-          await axios.post(`https://api.hetzner.cloud/v1/servers/${vmid}/actions/poweroff`, null, {
+          await axios.post(`https://api.hetzner.cloud/v1/servers/${vmID}/actions/poweroff`, null, {
             headers: {
               'Authorization': `Bearer ${process.env.HETZNER_API_TOKEN}`
             }
@@ -338,14 +338,14 @@ export default {
           app.client.chat.postEphemeral({
             channel: `${body.channel.id}`,
             user: `${body.user.id}`,
-            text: `Server Id: ${vmid} has been stopped.`
+            text: `Server Id: ${vmID} has been stopped.`
           });
         } catch (error) {
           log.error('Error stopping the server', axiosError(error));
           app.client.chat.postEphemeral({
               channel: `${body.channel.id}`,
               user: `${body.user.id}`,
-              text: `Server Id: ${vmid} failed to stop.`
+              text: `Server Id: ${vmID} failed to stop.`
           });
           
           return;
@@ -353,8 +353,7 @@ export default {
     },
 
     //code to build button UI
-    selectImage: async ({app, body }) => {
-
+    selectImage: async ({app, body }, data) => {
       //get the hetzner images
       const images = await getHetznerImages();
 
@@ -376,6 +375,8 @@ export default {
         text: `Select an image:`
       });
       for (const image of images) {
+        data.imageName = image.description;
+        data.imageID = image.id;
         app.client.chat.postEphemeral({
         channel: `${body.channel.id}`,
         user: `${body.user.id}`,
@@ -389,13 +390,113 @@ export default {
                     "type": "plain_text",
                     "text": `${image.description}`
                 },
-                "action_id": `button_create_image_hetzner_${image.description}_${image.id}`
+                "action_id": `button_create_image_hetzner`,
+                "value": JSON.stringify(data)
                 },
             ]
             }
         ],
         text: "Select an image:"
         })
+      }
+    },
+
+    selectRegion: async ({app, body }) => {
+      //get the regions from the env variable
+      const regions = process.env.HETZNER_REGIONS.split(',').map(region => region.trim()).filter(region => region);
+      
+      //return if it fails to get the regions.
+      if (!regions) {
+        app.client.chat.postEphemeral({
+          channel: `${body.channel.id}`,
+          user: `${body.user.id}`,
+          text: `Failed to get region data`
+        });
+
+        return;
+      }
+
+      //build button for user to select
+      app.client.chat.postEphemeral({
+        channel: `${body.channel.id}`,
+        user: `${body.user.id}`,
+        text: `Select a region:`
+      });
+      for (const region of regions) {
+        app.client.chat.postEphemeral({
+        channel: `${body.channel.id}`,
+        user: `${body.user.id}`,
+        blocks: [
+            {
+            "type": "actions",
+            "elements": [
+                {
+                "type": "button",
+                "text": {
+                    "type": "plain_text",
+                    "text": `${region}`
+                },
+                "action_id": `button_select_hetzner_server`,
+                "value": JSON.stringify({region})
+                },
+            ]
+            }
+        ],
+        text: "Select a region:"
+        })
+      }
+    },
+
+    selectServer: async ({app, body }, data) => {
+      const { region } = data;
+      try {
+        const response = await axios.get('https://api.hetzner.cloud/v1/server_types', {
+          headers: {
+            'Authorization': `Bearer ${process.env.HETZNER_API_TOKEN}`
+          }
+        });
+    
+        const serverTypes = response.data.server_types;
+    
+        // Filter server types available in the specified region, with cpu_type as 'shared' and architecture not equal to 'arm'
+        const filteredServerTypes = serverTypes.filter(serverType => 
+          serverType.prices.some(price => price.location === region) && // Check for the specified region
+          serverType.cpu_type === 'shared' &&                           // Check if the CPU type is 'shared'
+          serverType.architecture !== 'arm'                             // Exclude servers with 'arm' architecture
+        );
+    
+        app.client.chat.postEphemeral({
+          channel: `${body.channel.id}`,
+          user: `${body.user.id}`,
+          text: `Select a server:`
+        });
+
+        for (const serverType of filteredServerTypes) {
+          data.serverType = serverType.name;
+          app.client.chat.postEphemeral({
+          channel: `${body.channel.id}`,
+          user: `${body.user.id}`,
+          blocks: [
+            {
+            "type": "actions",
+            "elements": [
+                {
+                "type": "button",
+                "text": {
+                    "type": "plain_text",
+                    "text": `${serverType.name}`
+                },
+                "action_id": `button_select_hetzner_image`,
+                "value": JSON.stringify(data)
+                },
+              ]
+            }
+          ],
+          text: "Select a region:"
+          })
+        }
+      } catch (error) {
+        console.error('Error fetching server types:', error);
       }
     }
 }

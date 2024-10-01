@@ -1,8 +1,8 @@
 import { DescribeInstancesCommand, EC2Client } from "@aws-sdk/client-ec2";
 
-export default async function getInstance({ userEmail = "", serverName = "" } = {}) {
+export default async function getInstance({ userEmail = "", serverName = "", region }) {
     // This example describes the specified instance.
-    const client = new EC2Client();
+    const client = new EC2Client({ region });
 
     const filters = [
         {
