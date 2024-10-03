@@ -1,9 +1,10 @@
+import 'dotenv/config';
 import { EC2Client, DescribeImagesCommand } from "@aws-sdk/client-ec2";
 
 export default async function getAwsImages({ region }) {
     const client = new EC2Client({ region });
     const input = {
-        Owners: ['self']
+        Owners: [process.env.AWS_AMI_OWNER_ACCOUNT_ID]
     };
 
     const command = new DescribeImagesCommand(input);
