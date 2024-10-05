@@ -11,6 +11,7 @@ import formatUser from '../format-user.js';
 import getDevices from '../get-devices-info.js';
 import getInstance from "./get-instances.js";
 import getSecurityGroups from "./get-security-groups.js";
+import getSubnets from "./get-subnets.js";
 import configUserData from "../get-user-data.js";
 import getAwsImages from "./get-aws-images.js";
 import axiosError from '../axios-error-handler.js';
@@ -72,6 +73,7 @@ export default {
             "MaxCount": 1,
             "MinCount": 1,
             "SecurityGroupIds": await getSecurityGroups({ region }),
+            "SubnetId": await getSubnets({ region }),
             "TagSpecifications": [
                 {
                     "ResourceType": "instance",
