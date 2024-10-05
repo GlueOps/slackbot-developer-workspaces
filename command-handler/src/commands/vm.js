@@ -1,5 +1,6 @@
 import hetzner from '../util/hetzner/hetzner-servers.js';
 import aws from '../util/aws/aws-server.js';
+import buttonBuilder from '../util/button-builder.js';
 
 export default {
     description: 'Sets up vm options',
@@ -12,40 +13,15 @@ export default {
           break;
         }
         case 'button_create_vm': {
+          const buttonsArray = [
+            { text: "aws", actionId: "button_create_vm_aws" },
+            { text: "hetzner", actionId: "button_create_vm_hetzner" },
+          ];
+          const buttons = buttonBuilder({ buttonsArray, headerText: "choose your platform", fallbackText: "device unsupported" });
           app.client.chat.postEphemeral({
           channel: `${body.channel.id}`,
           user: `${body.user.id}`,
-          blocks: [
-            {
-              "type": "section",
-              "text": {
-                "type": "mrkdwn",
-                "text": "Select a platform to create the vm in:"
-              }
-            },
-            {
-              "type": "actions",
-              "elements": [
-                {
-                  "type": "button",
-                  "text": {
-                    "type": "plain_text",
-                    "text": "aws"
-                  },
-                  "action_id": "button_create_vm_aws"
-                },
-                {
-                  "type": "button",
-                  "text": {
-                    "type": "plain_text",
-                    "text": "hetzner"
-                  },
-                  "action_id": "button_create_vm_hetzner"
-                }
-              ]
-            }
-          ],
-          text: "VM options"
+          ...buttons
           });
           break;
         }
@@ -142,40 +118,18 @@ export default {
     },
     
     run: async ({ event, app }) => {
+      const buttonsArray = [
+        { text: "List Servers", actionId: "button_list_servers" },
+        { text: "Create Server", actionId: "button_create_vm" },
+      ];
+      const buttons = buttonBuilder({ buttonsArray, 
+        headerText: "Click one of the buttons below for VM options:", 
+        fallbackText: "device unsupported to use vm command" 
+      });
       app.client.chat.postEphemeral({
         channel: `${event.channel}`,
         user: `${event.user}`,
-        blocks: [
-          {
-            "type": "section",
-            "text": {
-              "type": "mrkdwn",
-              "text": "Click one of the buttons below for VM options:"
-            }
-          },
-          {
-            "type": "actions",
-            "elements": [
-              {
-                "type": "button",
-                "text": {
-                  "type": "plain_text",
-                  "text": "List Servers"
-                },
-                "action_id": "button_list_servers"
-              },
-              {
-                "type": "button",
-                "text": {
-                  "type": "plain_text",
-                  "text": "Create Server"
-                },
-                "action_id": "button_create_vm"
-              }
-            ]
-          }
-        ],
-        text: "VM options"
-      })        
+        ...buttons
+      });       
     }
 }

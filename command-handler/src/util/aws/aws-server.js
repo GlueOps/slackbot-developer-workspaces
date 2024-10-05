@@ -5,10 +5,10 @@ import {
     TerminateInstancesCommand,
 } from "@aws-sdk/client-ec2";
 import logger from '../logger.js';
-import axios from 'axios';
 import 'dotenv/config';
+import tailscale from "../tailscale/tailscale.js";
 import formatUser from '../format-user.js';
-import getDevices from '../get-devices-info.js';
+import getDevices from '../tailscale/get-devices-info.js';
 import getInstance from "./get-instances.js";
 import getSecurityGroups from "./get-security-groups.js";
 import getSubnets from "./get-subnets.js";
@@ -132,18 +132,8 @@ export default {
             try {
             //get servers and info from tailscale
             const { deviceId } = await getDevices(serverName);
-    
-            await axios.post(`https://api.tailscale.com/api/v2/device/${deviceId}/tags`, 
-                {
-                "tags": [
-                    `tag:${userEmail}`
-                ]
-                }, {
-                headers: {
-                'Authorization': `Bearer ${process.env.TAILSCALE_API_TOKEN}`,
-                'Content-Type': 'application/json'
-                }
-            });
+            await tailscale.setTags({ userEmail, deviceId });
+            
             break;
             } catch (error) {
                 log.info(`Attempt ${attempts} Failed. Backing off for 30 seconds`)
@@ -180,11 +170,7 @@ export default {
         const { deviceId } = await getDevices(serverName)
 
         //delete the device from tailscale
-        await axios.delete(`https://api.tailscale.com/api/v2/device/${deviceId}`, {
-          headers: {
-            'Authorization': `Bearer ${process.env.TAILSCALE_API_TOKEN}`
-          }
-        })
+        await tailscale.removeDevice({ deviceId })
         .catch(error => {
           log.error('Failed to delete device in tailscale', axiosError(error));
 
