@@ -1,5 +1,5 @@
 const formatUser = (user) => {
-    const formatedUser = user.replaceAll('@', '-').replaceAll('.', '-').replaceAll('_', '-').toLowerCase();
+    const formatedUser = user.split('@')[0].replaceAll('.', '-').replaceAll('_', '-').toLowerCase();
     return formatedUser;
 }
 
