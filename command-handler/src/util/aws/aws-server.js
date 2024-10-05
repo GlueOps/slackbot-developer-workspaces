@@ -63,7 +63,7 @@ export default {
                 {
                     "DeviceName": "/dev/xvda",
                     "Ebs": {
-                        "VolumeSize": 52,
+                        "VolumeSize": 120,
                         "VolumeType": "gp3"
                     }
                 }
