@@ -1,9 +1,8 @@
-import { 
-    DescribeSecurityGroupsCommand, 
+import {
     EC2Client, RunInstancesCommand,
     StopInstancesCommand,
     StartInstancesCommand,
-    TerminateInstancesCommand
+    TerminateInstancesCommand,
 } from "@aws-sdk/client-ec2";
 import logger from '../logger.js';
 import axios from 'axios';
@@ -11,6 +10,7 @@ import 'dotenv/config';
 import formatUser from '../format-user.js';
 import getDevices from '../get-devices-info.js';
 import getInstance from "./get-instances.js";
+import getSecurityGroups from "./get-security-groups.js";
 import configUserData from "../get-user-data.js";
 import getAwsImages from "./get-aws-images.js";
 import axiosError from '../axios-error-handler.js';
@@ -20,32 +20,10 @@ const log = logger();
 
 const delay = (ms) => {
     return new Promise(resolve => setTimeout(resolve, ms));
-  }
-
-const instanceType = 't3a.large';
+}
 
 export default {
-    getSecurityGroups: async({ app, body }) => {
-        const client = new EC2Client();
-        try {
-            const { SecurityGroups } = await client.send(
-            new DescribeSecurityGroupsCommand({}),
-            );
-
-            const securityGroupList = SecurityGroups.slice(0, 9)
-            .map((sg) => ` • ${sg.GroupId}: ${sg.GroupName}`)
-            .join("\n");
-
-            console.log(
-            "Hello, Amazon EC2! Let's list up to 10 of your security groups:",
-            );
-            console.log(securityGroupList);
-        } catch (err) {
-            console.error(err);
-        }
-    },
-
-    createServer: async({ app, body, imageName, ami }) => {
+    createServer: async({ app, body, imageName, ami, region, instanceType }) => {
         //auto generate the name
         const serverName = uniqueNamesGenerator({ 
             dictionaries: [ colors, animals ],
@@ -78,8 +56,7 @@ export default {
             user: `${body.user.id}`,
             text: `Creating the server with image: ${imageName} This will take about 5 minutes.`
         });
-        // This example launches an instance using the specified AMI, instance type, security group, subnet, block device mapping, and tags.
-        const client = new EC2Client();
+        const client = new EC2Client({ region });
         const input = {
             "BlockDeviceMappings": [
                 {
@@ -92,13 +69,9 @@ export default {
             ],
             "ImageId": ami,
             "InstanceType": instanceType,
-            // "KeyName": "my-key-pair",
             "MaxCount": 1,
             "MinCount": 1,
-            "SecurityGroupIds": [
-                "sg-0b5b0e1fb1f73dbba"
-            ],
-            // "SubnetId": "subnet-6e7f829e",
+            "SecurityGroupIds": await getSecurityGroups({ region }),
             "TagSpecifications": [
                 {
                     "ResourceType": "instance",
@@ -126,7 +99,7 @@ export default {
             //wait 30 seconds
             await delay(1000 * 30);
 
-            const server = await getInstance({ serverName });
+            const server = await getInstance({ serverName, region });
 
             if (server[0].State.Name === 'running') {
             break;
@@ -200,7 +173,7 @@ export default {
         });
     },
 
-    deleteServer: async ({ app, body, instanceId, serverName }) => {
+    deleteServer: async ({ app, body, instanceId, serverName, region }) => {
         //get servers from tailscale
         const { deviceId } = await getDevices(serverName)
 
@@ -221,7 +194,7 @@ export default {
         });
 
         //terminate the server from aws
-        const client = new EC2Client();
+        const client = new EC2Client({ region });
         const command = new TerminateInstancesCommand({
             InstanceIds: [instanceId],
         });
@@ -254,70 +227,75 @@ export default {
 
         const userEmail = formatUser(info.user.profile.email);
 
+        //get all the regions
+        const regions = process.env.AWS_REGIONS.split(',').map(region => region.trim()).filter(region => region);
         //get the instances from aws
-        const instances = await getInstance({ userEmail });
-
         app.client.chat.postEphemeral({
             channel: `${body.channel.id}`,
             user: `${body.user.id}`,
             text: `Servers in AWS:`
-          });
+        });
+        for (const region of regions) {
+            const instances = await getInstance({ userEmail, region });
+            // list the servers and build the buttons
+            for (const instance of instances) {
+                //get the tag name from the instance
+                const serverName = instance.Tags.find(tag => tag.Key === 'Name')?.Value;
+                const { deviceIP } = await getDevices(serverName);
 
-        // list the servers and build the buttons
-        for (const instance of instances) {
-            //get the tag name from the instance
-            const serverName = instance.Tags.find(tag => tag.Key === 'Name')?.Value;
-            const { deviceIP } = await getDevices(serverName);
-
-            app.client.chat.postEphemeral({
-            channel: `${body.channel.id}`,
-            user: `${body.user.id}`,
-            blocks: [
-                {
-                "type": "section",
-                "text": {
-                    "type": "mrkdwn",
-                    "text": `Server: ${serverName}\nServer id: ${instance.InstanceId}\nStatus: ${instance.State.Name}\nConnect: https://login.tailscale.com/admin/machines/${deviceIP}`
-                }
-                },
-                {
-                "type": "actions",
-                "elements": [
+                app.client.chat.postEphemeral({
+                channel: `${body.channel.id}`,
+                user: `${body.user.id}`,
+                blocks: [
                     {
-                    "type": "button",
+                    "type": "section",
                     "text": {
-                        "type": "plain_text",
-                        "text": "Start"
-                    },
-                    "action_id": `button_start_aws_${instance.InstanceId}`
-                    },
-                    {
-                    "type": "button",
-                    "text": {
-                        "type": "plain_text",
-                        "text": "Stop"
-                    },
-                    "action_id": `button_stop_aws_${instance.InstanceId}`
-                    },
-                    {
-                    "type": "button",
-                    "text": {
-                        "type": "plain_text",
-                        "text": "Delete"
-                    },
-                    "action_id": `button_delete_aws_${instance.InstanceId}_${serverName}`
+                        "type": "mrkdwn",
+                        "text": `Server: ${serverName}\nServer id: ${instance.InstanceId}\nRegion: ${region}\nStatus: ${instance.State.Name}\nConnect: https://login.tailscale.com/admin/machines/${deviceIP}`
                     }
-                ]
-                }
-            ],
-            text: "VM options"
-            })
+                    },
+                    {
+                    "type": "actions",
+                    "elements": [
+                        {
+                        "type": "button",
+                        "text": {
+                            "type": "plain_text",
+                            "text": "Start"
+                        },
+                        "action_id": `button_start_aws`,
+                        "value": JSON.stringify({instanceId: instance.InstanceId, region})
+                        },
+                        {
+                        "type": "button",
+                        "text": {
+                            "type": "plain_text",
+                            "text": "Stop"
+                        },
+                        "action_id": `button_stop_aws`,
+                        "value": JSON.stringify({instanceId: instance.InstanceId, region})
+                        },
+                        {
+                        "type": "button",
+                        "text": {
+                            "type": "plain_text",
+                            "text": "Delete"
+                        },
+                        "action_id": `button_delete_aws`,
+                        "value": JSON.stringify({instanceId: instance.InstanceId, serverName, region})
+                        }
+                    ]
+                    }
+                ],
+                text: "VM options"
+                });
+            }
         }
         // example id: to-describe-an-amazon-ec2-instance-1529025982172
     },
 
-    startServer: async({ app, body, instanceId }) => {
-        const client = new EC2Client();
+    startServer: async({ app, body, instanceId, region }) => {
+        const client = new EC2Client({ region });
         const command = new StartInstancesCommand({
             InstanceIds: [instanceId],
         });
@@ -333,8 +311,8 @@ export default {
         }
     },
 
-    stopServer: async({ app, body, instanceId }) => {
-        const client = new EC2Client();
+    stopServer: async({ app, body, instanceId, region }) => {
+        const client = new EC2Client({ region });
         const command = new StopInstancesCommand({
             InstanceIds: [instanceId],
         });
@@ -350,32 +328,116 @@ export default {
         }
     },
 
-    selectImage: async({ app, body }) => {
-    //get the aws images
-      const images = await getAwsImages();
+    selectImage: async({ app, body, data }) => {
+        const { region } = data;
+        //get the aws images
+        const images = await getAwsImages({ region });
 
-      //return if it fails to get the images.
-      if (!images) {
+        //return if it fails to get the images.
+        if (!images) {
         app.client.chat.postEphemeral({
-          channel: `${body.channel.id}`,
-          user: `${body.user.id}`,
-          text: `Failed to get image data`
+            channel: `${body.channel.id}`,
+            user: `${body.user.id}`,
+            text: `Failed to get image data`
         });
 
         return;
-      }
+        }
 
-      //build button for user to select
-      app.client.chat.postEphemeral({
-        channel: `${body.channel.id}`,
-        user: `${body.user.id}`,
-        text: `Select an image:`
-      });
-      for (const image of images) {
+        //build button for user to select
         app.client.chat.postEphemeral({
         channel: `${body.channel.id}`,
         user: `${body.user.id}`,
-        blocks: [
+        text: `Select an image:`
+        });
+        for (const image of images) {
+            data.imageName = image.Name;
+            data.ami = image.ImageId;
+            app.client.chat.postEphemeral({
+            channel: `${body.channel.id}`,
+            user: `${body.user.id}`,
+            blocks: [
+                {
+                "type": "actions",
+                "elements": [
+                    {
+                    "type": "button",
+                    "text": {
+                        "type": "plain_text",
+                        "text": `${image.Name}`
+                    },
+                    "action_id": `button_create_image_aws`,
+                    "value": JSON.stringify(data)
+                    },
+                ]
+                }
+            ],
+            text: "Select an image:"
+            });
+        }
+    },
+
+    selectRegion: async ({app, body }) => {
+        //get the regions from the env variable
+        const regions = process.env.AWS_REGIONS.split(',').map(region => region.trim()).filter(region => region);
+        
+        //return if it fails to get the regions.
+        if (!regions) {
+          app.client.chat.postEphemeral({
+            channel: `${body.channel.id}`,
+            user: `${body.user.id}`,
+            text: `Failed to get region data`
+          });
+  
+          return;
+        }
+  
+        //build button for user to select
+        app.client.chat.postEphemeral({
+          channel: `${body.channel.id}`,
+          user: `${body.user.id}`,
+          text: `Select a region:`
+        });
+        for (const region of regions) {
+          app.client.chat.postEphemeral({
+          channel: `${body.channel.id}`,
+          user: `${body.user.id}`,
+          blocks: [
+              {
+              "type": "actions",
+              "elements": [
+                  {
+                  "type": "button",
+                  "text": {
+                      "type": "plain_text",
+                      "text": `${region}`
+                  },
+                  "action_id": `button_select_aws_server`,
+                  "value": JSON.stringify({region})
+                  },
+              ]
+              }
+          ],
+          text: "Select a region:"
+          })
+        }
+    },
+
+    selectServer: async ({app, body, data }) => {
+        const instances = process.env.AWS_INSTANCES.split(',').map(instance => instance.trim()).filter(instance => instance);
+      
+        app.client.chat.postEphemeral({
+          channel: `${body.channel.id}`,
+          user: `${body.user.id}`,
+          text: `Select an instance:`
+        });
+  
+        for (const instance of instances) {
+          data.instanceType = instance;
+          app.client.chat.postEphemeral({
+          channel: `${body.channel.id}`,
+          user: `${body.user.id}`,
+          blocks: [
             {
             "type": "actions",
             "elements": [
@@ -383,15 +445,16 @@ export default {
                 "type": "button",
                 "text": {
                     "type": "plain_text",
-                    "text": `${image.Name}`
+                    "text": `${instance}`
                 },
-                "action_id": `button_create_image_aws_${image.Name}_${image.ImageId}`
+                "action_id": `button_select_aws_image`,
+                "value": JSON.stringify(data)
                 },
-            ]
+              ]
             }
-        ],
-        text: "Select an image:"
-        });
-      }
+          ],
+          text: "Select an instance"
+          })
+        };
     }
 };

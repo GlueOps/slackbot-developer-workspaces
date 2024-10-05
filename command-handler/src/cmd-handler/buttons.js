@@ -29,6 +29,22 @@ const registeredButtons = {
         command: 'vm',
         isRegex: true,
     },
+    "^button_select_hetzner_server": {
+        command: 'vm',
+        isRegex: true,
+    },
+    "^button_select_aws_server": {
+        command: 'vm',
+        isRegex: true,
+    },
+    "^button_select_hetzner_image": {
+        command: 'vm',
+        isRegex: true,
+    },
+    "^button_select_aws_image": {
+        command: 'vm',
+        isRegex: true,
+    },
 };
 
 export default registeredButtons;
