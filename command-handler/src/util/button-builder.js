@@ -6,7 +6,8 @@ export default function buttonBuilder({ buttonsArray, headerText, fallbackText }
                 "type": "plain_text",
                 "text": button.text
             },
-            "action_id": button.actionId
+            "action_id": button.actionId,
+            "value": button.value || ""
         };
     });
 

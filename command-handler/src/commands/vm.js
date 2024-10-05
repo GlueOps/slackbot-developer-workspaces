@@ -8,8 +8,39 @@ export default {
     button: async ({ app, actionId, body, response }) => {
       switch(actionId) {
         case 'button_list_servers': {
-          await aws.listServers({ app, body });
-          await hetzner.listServers({ app, body });
+          const servers = [];
+          const buttons = [];
+          const buttonsArray = [
+            { text: "List Servers", actionId: "button_list_servers" },
+            { text: "Create Server", actionId: "button_create_vm" },
+          ];
+
+          servers.push(await aws.listServers({ app, body }));
+          servers.push(await hetzner.listServers({ app, body }));
+          for (const server in servers) {
+            buttonsArray.push({ text: "Start", actionId: `button_start_${server.cloud}`, value: JSON.stringify({ instanceId: server.serverID, vmID: server.serverID, region: server.region })},
+              { text: "Stop", actionId: `button_stop_${server.cloud}`, value: JSON.stringify({ instanceId: server.serverID, vmID: server.serverID, region: server.region })},
+              { text: "Delete", actionId: `button_delete_${server.cloud}`, value: JSON.stringify({ instanceId: server.serverID, serverName: server.serverName, region: server.region })}
+            );
+            buttons.push(buttonBuilder({ buttonsArray,
+              headerText: `Server: ${server.serverName}\nServer id: ${server.serverID}\nRegion: ${server.region}\nStatus: ${server.status}\nConnect: ${server.connect}`,
+              fallbackText: "device not supported to use vm command"
+             }));
+          }
+
+          if (servers.length) {
+            app.client.chat.postEphemeral({
+              channel: `${body.channel}`,
+              user: `${body.user}`,
+              ...buttons
+            }); 
+          } else {
+            app.client.chat.postEphemeral({
+              channel: `${body.channel}`,
+              user: `${body.user}`,
+              test: "You don't currently have any servers"
+            }); 
+          }
           break;
         }
         case 'button_create_vm': {

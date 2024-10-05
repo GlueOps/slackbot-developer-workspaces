@@ -215,6 +215,7 @@ export default {
     //list the servers
     listServers: async ({ app, body }) => {
         const data = await getServer();
+        const servers = [];
 
         // Call the users.info method using the WebClient
         const info = await app.client.users.info({
@@ -236,54 +237,19 @@ export default {
         for (const server of data.data.servers) {
             if (server.labels.owner === userEmail) {
                 const { deviceIP } = await getDevices(server.name);
-                app.client.chat.postEphemeral({
-                channel: `${body.channel.id}`,
-                user: `${body.user.id}`,
-                blocks: [
-                    {
-                    "type": "section",
-                    "text": {
-                        "type": "mrkdwn",
-                        "text": `Server: ${server.name}\nServer id: ${server.id}\nStatus: ${server.status}\nConnect: https://login.tailscale.com/admin/machines/${deviceIP}`
-                    }
-                    },
-                    {
-                    "type": "actions",
-                    "elements": [
-                        {
-                        "type": "button",
-                        "text": {
-                            "type": "plain_text",
-                            "text": "Start"
-                        },
-                        "action_id": `button_start_hetzner`,
-                        "value": JSON.stringify({vmID: server.id})
-                        },
-                        {
-                        "type": "button",
-                        "text": {
-                            "type": "plain_text",
-                            "text": "Stop"
-                        },
-                        "action_id": `button_stop_hetzner`,
-                        "value": JSON.stringify({vmID: server.id})
-                        },
-                        {
-                        "type": "button",
-                        "text": {
-                            "type": "plain_text",
-                            "text": "Delete"
-                        },
-                        "action_id": `button_delete_hetzner`,
-                        "value": JSON.stringify({serverName: server.name})
-                        }
-                    ]
-                    }
-                ],
-                text: "VM options"
-                })
+
+              servers.push({
+                cloud: "hetzner",
+                serverName: `${server.name}`,
+                serverID: `${server.id}`,
+                region: `${region}`,
+                status: `${server.status}`,
+                connect: `https://login.tailscale.com/admin/machines/${deviceIP}`
+              });
             }
         }
+
+        return servers;
     },
 
     //start a hetzner server
@@ -341,6 +307,7 @@ export default {
 
     //code to build button UI
     selectImage: async ({app, body, data }) => {
+      const buttonsArray = [];
       //get the hetzner images
       const images = await getHetznerImages();
 
@@ -356,39 +323,22 @@ export default {
       }
 
       //build button for user to select
-      app.client.chat.postEphemeral({
-        channel: `${body.channel.id}`,
-        user: `${body.user.id}`,
-        text: `Select an image:`
-      });
       for (const image of images) {
         data.imageName = image.description;
         data.imageID = image.id;
-        app.client.chat.postEphemeral({
+        buttonsArray.push({ text: image.description, actionId: 'button_create_image_hetzner', value: JSON.stringify(data) })
+      }
+
+      const buttons = buttonBuilder({ buttonsArray, headerText: 'Select an image', fallbackText: 'unsupported device' });
+      app.client.chat.postEphemeral({
         channel: `${body.channel.id}`,
         user: `${body.user.id}`,
-        blocks: [
-            {
-            "type": "actions",
-            "elements": [
-                {
-                "type": "button",
-                "text": {
-                    "type": "plain_text",
-                    "text": `${image.description}`
-                },
-                "action_id": `button_create_image_hetzner`,
-                "value": JSON.stringify(data)
-                },
-            ]
-            }
-        ],
-        text: "Select an image:"
-        })
-      }
+        ...buttons
+      });
     },
 
     selectRegion: async ({app, body }) => {
+      const buttonsArray = [];
       //get the regions from the env variable
       const regions = process.env.HETZNER_REGIONS.split(',').map(region => region.trim()).filter(region => region);
       
@@ -404,37 +354,19 @@ export default {
       }
 
       //build button for user to select
+      for (const region of regions) {
+        buttonsArray.push({ text: region, actionId: 'button_select_hetzner_server', value: JSON.stringify({ region }) });
+      }
+      const buttons = buttonBuilder({ buttonsArray, headerText: 'Select a region', fallbackText: 'unsupported device' });
       app.client.chat.postEphemeral({
         channel: `${body.channel.id}`,
         user: `${body.user.id}`,
-        text: `Select a region:`
-      });
-      for (const region of regions) {
-        app.client.chat.postEphemeral({
-        channel: `${body.channel.id}`,
-        user: `${body.user.id}`,
-        blocks: [
-            {
-            "type": "actions",
-            "elements": [
-                {
-                "type": "button",
-                "text": {
-                    "type": "plain_text",
-                    "text": `${region}`
-                },
-                "action_id": `button_select_hetzner_server`,
-                "value": JSON.stringify({region})
-                },
-            ]
-            }
-        ],
-        text: "Select a region:"
-        })
-      }
+        ...buttons
+        });
     },
 
     selectServer: async ({app, body, data }) => {
+      const buttonsArray = [];
       const serverTypes = process.env.HETZNER_SERVER_TYPES.split(',').map(server => server.trim()).filter(server => server);
     
       app.client.chat.postEphemeral({
@@ -445,27 +377,13 @@ export default {
 
       for (const serverType of serverTypes) {
         data.serverType = serverType;
-        app.client.chat.postEphemeral({
+        buttonsArray.push({ text: serverType, actionId: 'button_select_hetzner_image', value: JSON.stringify({ data }) });
+      };
+      const buttons = buttonBuilder({ buttonsArray, headerText: 'Select a server', fallbackText: 'unsupported device' });
+      app.client.chat.postEphemeral({
         channel: `${body.channel.id}`,
         user: `${body.user.id}`,
-        blocks: [
-          {
-          "type": "actions",
-          "elements": [
-              {
-              "type": "button",
-              "text": {
-                  "type": "plain_text",
-                  "text": `${serverType}`
-              },
-              "action_id": `button_select_hetzner_image`,
-              "value": JSON.stringify(data)
-              },
-            ]
-          }
-        ],
-        text: "Select a server"
-        })
-      };
+        ...buttons
+      });
     }
 }
