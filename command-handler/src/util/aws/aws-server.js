@@ -162,7 +162,7 @@ export default {
         app.client.chat.postEphemeral({
             channel: `${body.channel.id}`,
             user: `${body.user.id}`,
-            text: `The server has been created: https://login.tailscale.com/admin/machines/${deviceIP}`
+            text: `Cloud: aws\nServer: ${serverName}\nRegion: ${region}\nStatus: Created\nConnect: https://login.tailscale.com/admin/machines/${deviceIP}`
         });
     },
 
@@ -207,6 +207,7 @@ export default {
 
     listServers: async({ app, body }) => {
         // Call the users.info method using the WebClient
+        const servers = [];
         const info = await app.client.users.info({
         user: body.user.id
         })
@@ -220,7 +221,6 @@ export default {
         const regions = process.env.AWS_REGIONS.split(',').map(region => region.trim()).filter(region => region);
         //get the instances from aws
         for (const region of regions) {
-            const servers = [];
             const instances = await getInstance({ userEmail, region });
             // list the servers and build the buttons
             for (const instance of instances) {
@@ -297,13 +297,14 @@ export default {
         for (const image of images) {
             data.imageName = image.Name;
             data.ami = image.ImageId;
-            buttonsArray.push({ text: image.Name, actionId: 'button_create_image_aws', value: JSON.stringify(data) })
+            buttonsArray.push({ text: image.Name, actionId: `button_create_image_aws_${image.Name}`, value: JSON.stringify(data) })
         }
 
         const buttons = buttonBuilder({ buttonsArray, headerText: 'Select an image', fallbackText: 'unsupported device' });
         app.client.chat.postEphemeral({
             channel: `${body.channel.id}`,
             user: `${body.user.id}`,
+            text: 'select an image',
             ...buttons
         });
     },
@@ -326,12 +327,15 @@ export default {
   
         //build button for user to select
         for (const region of regions) {
-            buttonsArray.push({ text: region, actionId: 'button_select_aws_server', value: JSON.stringify({ region }) });
+            buttonsArray.push({ text: region, actionId: `button_select_aws_server_${region}`, value: JSON.stringify({ region }) });
         }
+
         const buttons = buttonBuilder({ buttonsArray, headerText: 'Select a region', fallbackText: 'unsupported device' });
+
         app.client.chat.postEphemeral({
             channel: `${body.channel.id}`,
             user: `${body.user.id}`,
+            text: 'select a region',
             ...buttons
         })
     },
@@ -342,12 +346,13 @@ export default {
   
         for (const instance of instances) {
             data.instanceType = instance;
-            buttonsArray.push({ text: instance, actionId: 'button_select_aws_image', value: JSON.stringify({ data }) });
+            buttonsArray.push({ text: instance, actionId: `button_select_aws_image_${instance}`, value: JSON.stringify(data) });
         };
         const buttons = buttonBuilder({ buttonsArray, headerText: 'Select an instance', fallbackText: 'unsupported device' });
         app.client.chat.postEphemeral({
             channel: `${body.channel.id}`,
             user: `${body.user.id}`,
+            text: 'select an instance',
             ...buttons
         });
     }

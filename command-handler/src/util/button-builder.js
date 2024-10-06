@@ -7,7 +7,7 @@ export default function buttonBuilder({ buttonsArray, headerText, fallbackText }
                 "text": button.text
             },
             "action_id": button.actionId,
-            "value": button.value || ""
+            "value": button.value
         };
     });
 
