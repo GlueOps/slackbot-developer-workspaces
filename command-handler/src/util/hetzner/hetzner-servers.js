@@ -228,6 +228,15 @@ export default {
 
         const userEmail = formatUser(info.user.profile.email);
 
+        if (!data) {
+          app.client.chat.postEphemeral({
+            channel: `${body.channel.id}`,
+            user: `${body.user.id}`,
+            text: `Failed to get server data from hetzner`
+          });
+          return [];
+        }
+        
         //list the servers and build the buttons
         for (const server of data.data.servers) {
             if (server.labels.owner === userEmail) {
