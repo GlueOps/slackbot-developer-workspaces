@@ -1,5 +1,6 @@
 import hetzner from '../util/hetzner/hetzner-servers.js';
 import aws from '../util/aws/aws-server.js';
+import libvirt from '../util/libvirt/libvirt-server.js';
 import buttonBuilder from '../util/button-builder.js';
 
 export default {
@@ -13,6 +14,7 @@ export default {
         // Fetch servers from AWS and Hetzner
         servers.push(...await aws.listServers({ app, body }));
         servers.push(...await hetzner.listServers({ app, body }));
+        servers.push(...await libvirt.listServers({ app, body }));
     
         // Check if there are any servers
         if (servers.length) {
@@ -52,6 +54,7 @@ export default {
           const buttonsArray = [
             { text: "aws", actionId: "button_create_vm_aws" },
             { text: "hetzner", actionId: "button_create_vm_hetzner" },
+            { text: "libvirt", actionId: "button_create_vm_libvirt" },
           ];
           const buttons = buttonBuilder({ buttonsArray, headerText: "choose your platform", fallbackText: "device unsupported" });
           app.client.chat.postEphemeral({
@@ -88,18 +91,37 @@ export default {
 
           //delete the server
           hetzner.deleteServer({ app, body, serverName });
+        } else if (actionId === 'button_start_libvirt') {
+          const { instanceId, region } = JSON.parse(body.actions[0].value);
+            
+          libvirt.startServer({ app, body, instanceId, region });
+        } else if (actionId === 'button_stop_libvirt') {
+          const { instanceId, region } = JSON.parse(body.actions[0].value);
+
+          libvirt.stopServer({ app, body, instanceId, region });
+        } else if (actionId === 'button_delete_libvirt') {
+          const { instanceId, serverName, region } = JSON.parse(body.actions[0].value);
+
+          //delete the server
+          libvirt.deleteServer({ app, body, instanceId, serverName, region });
         } else if (actionId.startsWith('button_create_image_aws')) {
           const { imageName, ami, region, instanceType } = JSON.parse(body.actions[0].value);
           aws.createServer({ app, body, imageName, ami, region, instanceType });
         } else if (actionId.startsWith('button_create_image_hetzner')) {
           const { imageID, imageName, region, serverType } = JSON.parse(body.actions[0].value);
           hetzner.createServer({ app, body, imageID, imageName, region, serverType });
+        } else if (actionId.startsWith('button_create_image_libvirt')) {
+          const { imageName } = JSON.parse(body.actions[0].value);
+          libvirt.createServer({ app, body, imageName });
         } else if (actionId === 'button_create_vm_hetzner') {
           //select the hetzner server to create before calling the create server
           hetzner.selectRegion({ app, body });
         } else if (actionId === 'button_create_vm_aws') {
           //select the aws server to create before calling the create server
           aws.selectRegion({ app, body });
+        } else if (actionId === 'button_create_vm_libvirt') {
+          //select the libvirt image to create before calling the create server
+          libvirt.selectImage({ app, body });
         } else if (actionId.startsWith('button_select_hetzner_server')) {
           const data = JSON.parse(body.actions[0].value);
           //select the hetzner server to create before calling the create server
