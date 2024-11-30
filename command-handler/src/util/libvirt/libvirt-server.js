@@ -322,21 +322,4 @@ export default {
             ...buttons
         });
     },
-
-    // selectServer: async ({app, body, data }) => {
-    //     const instances = process.env.AWS_INSTANCES.split(',').map(instance => instance.trim()).filter(instance => instance);
-    //     const buttonsArray = [];
-  
-    //     for (const instance of instances) {
-    //         data.instanceType = instance;
-    //         buttonsArray.push({ text: instance, actionId: `button_select_aws_image_${instance}`, value: JSON.stringify(data) });
-    //     };
-    //     const buttons = buttonBuilder({ buttonsArray, headerText: 'Select an instance', fallbackText: 'unsupported device' });
-    //     app.client.chat.postEphemeral({
-    //         channel: `${body.channel.id}`,
-    //         user: `${body.user.id}`,
-    //         text: 'select an instance',
-    //         ...buttons
-    //     });
-    // }
 };
