@@ -258,7 +258,6 @@ export default {
 
     stopServer: async({ app, body, serverName }) => {
         try {
-            console.log(serverName)
             await axios.post(`${process.env.PROVISIONER_URL}/v1/stop`, {
                 "vm_name": serverName
             }, {
