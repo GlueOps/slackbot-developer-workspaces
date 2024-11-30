@@ -60,13 +60,14 @@ export default {
                         "name": userEmail
                         }
                     },
-                    "user_data": configUserData(serverName),
+                    "user_data": Buffer.from(configUserData(serverName)).toString('base64'),
                     "image": imageName
                 }, {
                 headers: {
                     'Authorization': `${process.env.PROVISIONER_API_TOKEN}`,
                     'Content-Type': 'application/json'
-                }
+                },
+                timeout: 1000 * 60 * 2
             });
         } catch (error) {
             log.error('There was an error creating the server', axiosError(error));
@@ -79,8 +80,8 @@ export default {
 
             return;
         }
-
-        if (serverRes !== 'Success') {
+        
+        if (serverRes.data !== 'Success') {
             app.client.chat.postEphemeral({
             channel: `${body.channel.id}`,
             user: `${body.user.id}`,
@@ -150,10 +151,9 @@ export default {
 
         try {
             await axios.delete(`${process.env.PROVISIONER_URL}/v1/delete`, {
-                "vm_name": serverName
-            }, {
+                data: { "vm_name": serverName },
                 headers: {
-                'Authorization': `${process.env.PROVISIONER_API_TOKEN}`
+                    'Authorization': `${process.env.PROVISIONER_API_TOKEN}`
                 }
             });
   
@@ -184,14 +184,17 @@ export default {
 
         const userEmail = formatUser(info.user.profile.email);
 
-        const data = await axios.get(`${process.env.PROVISIONER_URL}/v1/list`, {
+        const response = await axios.get(`${process.env.PROVISIONER_URL}/v1/list`, {
             headers: {
               'Authorization': `${process.env.PROVISIONER_API_TOKEN}`
-            }
+            },
+            timeout: 1000 * 60 * 2
           })
           .catch(error => {
             log.error('Failed to get servers from libvirt', axiosError(error));
         });
+
+        const data = response.data;
 
         if (!data) {
             app.client.chat.postEphemeral({
@@ -203,20 +206,24 @@ export default {
             return [];
         }
     
-        for (const server in data) {
-            if (data.hasOwnProperty(server)) { // Check if the key belongs to the object itself
-              const owner = data[server].Owner; // Access the Owner value
-              const { deviceIP } = await getDevices(server);
-              
-              // Check if the Owner matches the search value
-              if (owner === userEmail) {
-                servers.push({
-                    cloud: "libvirt",
-                    serverName: `${server}`,
-                    status: `-`,
-                    connect: `https://login.tailscale.com/admin/machines/${deviceIP}`
-                });
-              }
+        for (const server of data) {
+            // Update the regex to wrap both keys and values in double quotes
+            const description = JSON.parse(server.description
+            .replace(/([{,])\s*(\w+)\s*:/g, '$1"$2":') // Add quotes to keys
+            .replace(/:\s*(\w+)(?=\s*[\},])/g, ':"$1"')); // Add quotes to values
+
+            const owner = description.owner.name;
+
+            const { deviceIP } = await getDevices(server.name);
+            
+            // Check if the Owner matches the search value
+            if (owner === userEmail) {
+            servers.push({
+                cloud: "libvirt",
+                serverName: `${server.name}`,
+                status: `${server.state}`,
+                connect: `https://login.tailscale.com/admin/machines/${deviceIP}`
+            });
             }
         }
 
@@ -251,6 +258,7 @@ export default {
 
     stopServer: async({ app, body, serverName }) => {
         try {
+            console.log(serverName)
             await axios.post(`${process.env.PROVISIONER_URL}/v1/stop`, {
                 "vm_name": serverName
             }, {
@@ -284,7 +292,6 @@ export default {
         try {
             const res = await axios.get('https://api.github.com/repos/GlueOps/codespaces/tags');
             images = res.data.slice(0, 5).map(tag => tag.name);
-            console.log(images);
         } catch (error) {
             log.error('Error fetching tags:', axiosError(error));
         }

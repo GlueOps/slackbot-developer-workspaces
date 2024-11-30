@@ -20,8 +20,8 @@ export default {
         if (servers.length) {
           for (const server of servers) {
               const buttonsArray = [
-                  { text: "Start", actionId: `button_start_${server.cloud}`, value: JSON.stringify({ instanceId: server.serverID, vmID: server.serverID, region: server.region }) },
-                  { text: "Stop", actionId: `button_stop_${server.cloud}`, value: JSON.stringify({ instanceId: server.serverID, vmID: server.serverID, region: server.region }) },
+                  { text: "Start", actionId: `button_start_${server.cloud}`, value: JSON.stringify({ instanceId: server.serverID, vmID: server.serverID, serverName: server.serverName, region: server.region }) },
+                  { text: "Stop", actionId: `button_stop_${server.cloud}`, value: JSON.stringify({ instanceId: server.serverID, vmID: server.serverID, serverName: server.serverName, region: server.region }) },
                   { text: "Delete", actionId: `button_delete_${server.cloud}`, value: JSON.stringify({ instanceId: server.serverID, serverName: server.serverName, region: server.region }) }
               ];
   
@@ -92,18 +92,18 @@ export default {
           //delete the server
           hetzner.deleteServer({ app, body, serverName });
         } else if (actionId === 'button_start_libvirt') {
-          const { instanceId, region } = JSON.parse(body.actions[0].value);
+          const { serverName } = JSON.parse(body.actions[0].value);
             
-          libvirt.startServer({ app, body, instanceId, region });
+          libvirt.startServer({ app, body, serverName });
         } else if (actionId === 'button_stop_libvirt') {
-          const { instanceId, region } = JSON.parse(body.actions[0].value);
+          const { serverName } = JSON.parse(body.actions[0].value);
 
-          libvirt.stopServer({ app, body, instanceId, region });
+          libvirt.stopServer({ app, body, serverName });
         } else if (actionId === 'button_delete_libvirt') {
-          const { instanceId, serverName, region } = JSON.parse(body.actions[0].value);
+          const { serverName } = JSON.parse(body.actions[0].value);
 
           //delete the server
-          libvirt.deleteServer({ app, body, instanceId, serverName, region });
+          libvirt.deleteServer({ app, body, serverName });
         } else if (actionId.startsWith('button_create_image_aws')) {
           const { imageName, ami, region, instanceType } = JSON.parse(body.actions[0].value);
           aws.createServer({ app, body, imageName, ami, region, instanceType });
