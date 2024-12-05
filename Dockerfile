@@ -1,4 +1,4 @@
-FROM node:22-alpine@sha256:bb1dbd416ac5ba46c0ed716af99b8fa268712928f9a24ab3cc0023ac3d3fc22b
+FROM node:22-alpine@sha256:96cc8323e25c8cc6ddcb8b965e135cfd57846e8003ec0d7bcec16c5fd5f6d39f
 
 # Set the working directory to /app
 WORKDIR /app
