@@ -57,7 +57,7 @@ export default {
                     "vm_name": serverName,
                     "tags": {
                         "owner": {
-                        "name": `"${userEmail}"`
+                        "name": userEmail
                         }
                     },
                     "user_data": Buffer.from(configUserData(serverName)).toString('base64'),
