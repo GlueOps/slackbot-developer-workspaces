@@ -93,10 +93,10 @@ export default {
         
         let attempts;
 
-        let maxRetries = 1;  
+        let maxRetries = 13;  
         for (attempts = 1; attempts <= maxRetries; attempts++) {
-            //wait 30 seconds
-            await delay(1000 * 30);
+            //wait 10 seconds
+            await delay(1000 * 10);
             try {
             //get servers and info from tailscale
             const { deviceId } = await getDevices(serverName);
@@ -208,9 +208,7 @@ export default {
     
         for (const server of data) {
             // Update the regex to wrap both keys and values in double quotes
-            const description = JSON.parse(server.description
-            .replace(/([{,])\s*(\w+)\s*:/g, '$1"$2":') // Add quotes to keys
-            .replace(/:\s*(\w+)(?=\s*[\},])/g, ':"$1"')); // Add quotes to values
+            const description = JSON.parse(server.description);
 
             const owner = description.owner.name;
 
