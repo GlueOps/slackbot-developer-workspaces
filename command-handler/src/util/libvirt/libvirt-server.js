@@ -207,10 +207,8 @@ export default {
         }
     
         for (const server of data) {
-            // Update the regex to wrap both keys and values in double quotes
-            const description = JSON.parse(server.description);
-
-            const owner = description.owner.name;
+        
+            const owner = server.description.owner.name;
 
             const { deviceIP } = await getDevices(server.name);
             
