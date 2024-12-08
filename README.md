@@ -102,6 +102,9 @@ you will find your signing secret.
 4. Select API tokens and generate an API Token with Read & Write permissions. This will be your hetzner api token.
 
 ## Set up Tailscale
+
+_Note: For the steps below use a service account that has Admin permissions._
+
 1. Navigate to tailscale [admin console](https://login.tailscale.com/admin/machines)
 
 2. In the top menu bar, click DNS. This will give you your Tailnet name.
@@ -113,6 +116,113 @@ you will find your signing secret.
 5. Generate an auth key: you will need to give it a description, and select Reusable. The key must be rotated and has a max expiration of 90 days, but can be shortened. Leave Ephemeral, and Tags unchecked and generate the key. This will be your tailscale auth key.
 
 6. Generate an API acess token: you will need to give it a description. The key must be rotated and has a max expiration of 90 days, but can be shortened. This will be your Tailscale api token.
+
+### Setup tailscale ACLs
+
+Here is an example ACL that does the following:
+
+- Machines with `tag:app-prod-provisioner-api` can talk to `tag:app-prod-provisioner-nodes` and vice versa.
+- Users in `group:app-prod-provisioner-developers` can talk to `tag:app-prod-provisioner-api` and  `tag:app-prod-provisioner-nodes` 
+- `tim.cook@glueops.dev` is part of `group:app-prod-provisioner-developers`
+- `tim.cook@glueops.dev` can access their own instances tagged with `tag:tim-cook` however because we are using a SVC Admin account to tag the machines `tim.cook` doesn't actually own the tag itself.
+
+The goals of this ACL policy are to allow the provisioner API to access "provisioner nodes" via SSH (port 2222 since tailscale SSH takes over port 22). `tim.cook` needs to be able to admistrate provisioner nodes so he is part of `group:app-prod-provisioner-developers` otherwise he can be kept out of this group. `tim.cook` also uses a workspace himself so he needs to have a tag himself. Any user that uses a developer workspace will need their own tag so that this slack workspace bot can assign machines to them (e.g.  `tag:tim-cook`).
+
+When testing new policies/ACLs it's best to just create a separate tailnet/tailscale account for testing.
+
+```json
+{
+    "acls": [
+        {
+            "action": "accept",
+            "dst": [
+                "tag:app-prod-provisioner-api:*",
+                "tag:app-prod-provisioner-nodes:*"
+            ],
+            "src": [
+                "group:app-prod-provisioner-developers"
+            ]
+        },
+        {
+            "action": "accept",
+            "dst": [
+                "tag:app-prod-provisioner-nodes:*"
+            ],
+            "src": [
+                "tag:app-prod-provisioner-api"
+            ]
+        },
+        {
+            "action": "accept",
+            "dst": [
+                "tag:tim-cook:*"
+            ],
+            "src": [
+                "tim.cook@glueops.dev"
+            ]
+        }
+    ],
+    "groups": {
+        "group:app-prod-provisioner-developers": [
+            "tim.cook@glueops.dev"
+        ]
+    },
+    "ssh": [
+        {
+            "action": "check",
+            "dst": [
+                "autogroup:self"
+            ],
+            "src": [
+                "autogroup:member"
+            ],
+            "users": [
+                "autogroup:nonroot",
+                "root"
+            ]
+        },
+        {
+            "action": "check",
+            "dst": [
+                "tag:tim-cook"
+            ],
+            "src": [
+                "autogroup:member",
+                "autogroup:admin"
+            ],
+            "users": [
+                "autogroup:nonroot",
+                "root"
+            ]
+        },
+        {
+            "action": "check",
+            "dst": [
+                "tag:app-prod-provisioner-api",
+                "tag:app-prod-provisioner-nodes"
+            ],
+            "src": [
+                "group:app-prod-provisioner-developers"
+            ],
+            "users": [
+                "autogroup:nonroot",
+                "root"
+            ]
+        }
+    ],
+    "tagOwners": {
+        "tag:tim-cook": [
+            "autogroup:admin"
+        ],
+        "tag:app-prod-provisioner-api": [
+            "group:app-prod-provisioner-developers"
+        ],
+        "tag:app-prod-provisioner-nodes": [
+            "group:app-prod-provisioner-developers"
+        ]
+    }
+}
+```
 
 # Adding Bot commands
 The bot is set up with a command handler to process text commands with a prefix of ! i.e. !vm. It currently does not support slash commands.
