@@ -18,10 +18,13 @@ const customLogger = {
 };
 
 //receiver to integrate express with bolt
+//The receiver is what allows Bolt to communicate with Slack's servers.
+//The receiver listens for incoming HTTP requests from Slack, and then forwards them to the Bolt app.
 const receiver = new ExpressReceiver({
     signingSecret: process.env.SIGNING_SECRET,
 });
 
+// Initialize Bolt app with custom logger and receiver
 const app = new App({
     token: process.env.BOT_TOKEN,
     receiver,
@@ -30,11 +33,13 @@ const app = new App({
     logger: customLogger,
 });
 
+//function that starts the server and initializes the command handler
 (async () => {
     server(receiver);
     new CH({
+        //passing the bolt app to the command handler
         app,
-        featuresDir: path.join(process.cwd(), 'src', 'features'),
+        //directory where the commands are located
         commandsDir: path.join(process.cwd(), 'src', 'commands'),
     });
 })();
