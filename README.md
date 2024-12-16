@@ -11,6 +11,7 @@ while the bolt server listens on port 3000 by default. Read more in
 - Slack App setup
 - Hetzner Account and configured with API Token in the cloud projects
 - Tailscale Account and configured with API Token to install, add, remove machines
+- [Provisioner](https://github.com/GlueOps/provisioner) API Deployed to provision VMs on libvirt
 
 ### Steps
 1. pull down the latest image from ghcr
