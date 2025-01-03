@@ -15,9 +15,11 @@ export default class CommandHandler {
         // Create a command handler if commands directory is provided
         if (commandsDir) this._commandHandler = new cmdHandler(commandsDir, app, this);
 
-        // Create the command and button event Listeners
-        // pass the app and this instance of the command handler
-        // this calls the command and button functions to register the events
+        /*
+        Create the command and button event Listeners
+        pass the app and this instance of the command handler
+        this calls the command and button functions to register the events
+        */
         command(app, this);
         button(app, this);
     }

@@ -17,9 +17,12 @@ const customLogger = {
     error: (message) => log.error(message),
 };
 
-//receiver to integrate express with bolt
-//The receiver is what allows Bolt to communicate with Slack's servers.
-//The receiver listens for incoming HTTP requests from Slack, and then forwards them to the Bolt app.
+/*
+receiver to integrate express with bolt
+The receiver is what allows Bolt to communicate with Slack's servers.
+The receiver listens for incoming HTTP requests from Slack, and then 
+forwards them to the Bolt app.
+*/
 const receiver = new ExpressReceiver({
     signingSecret: process.env.SIGNING_SECRET,
 });
