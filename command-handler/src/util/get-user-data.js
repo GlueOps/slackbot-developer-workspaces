@@ -1,3 +1,8 @@
+/*
+    This file holds the configuration for the user data 
+    that is used in the cloud init script for the VMs.
+*/
+
 export default function configUserData(serverName) {
     const userData = `
         #cloud-config

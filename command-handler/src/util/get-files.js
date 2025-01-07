@@ -1,3 +1,10 @@
+/*
+    This file is responsible for getting all files in a directory.
+    It can be used for both directories and files.
+    This file is primarily used in the command handler to get all
+    the commands in the commands directory.
+*/
+
 import fs from 'fs';
 import path from 'path';
 
