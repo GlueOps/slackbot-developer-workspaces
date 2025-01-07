@@ -74,7 +74,7 @@ export default class CommandHandler {
             /*
             call the init function that was destructured 
             from the command object. Since the init function
-            is async, we await the function to complete before
+            is async, we await for the function to complete before
             continuing. This function is an optional function
             that commands can use to run any initialization code
             that the command depends on before being registered.
