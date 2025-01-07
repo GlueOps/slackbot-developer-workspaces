@@ -23,7 +23,7 @@ export default {
     /*
     run method is called when the command is executed
     To execute this command type !button in the slack channel where the bot is installed
-    The paramaters are descructured from the object passed to the run method
+    The parameters are destructured from the object passed to the run method
     response is used to send the response back to the slack channel
     event is the event object that contains the event details from slack.
     */
