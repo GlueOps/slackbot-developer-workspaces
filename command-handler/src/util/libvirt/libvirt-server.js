@@ -81,16 +81,6 @@ export default {
             return;
         }
         
-        if (serverRes.data !== 'Success') {
-            app.client.chat.postEphemeral({
-            channel: `${body.channel.id}`,
-            user: `${body.user.id}`,
-            text: `Failed to create a server.`
-            });
-
-            return;
-        }
-        
         let attempts;
 
         let maxRetries = 13;  
