@@ -16,7 +16,7 @@ const delay = (ms) => {
 }
 
 export default {
-    createServer: async({ app, body, imageName }) => {
+    createServer: async({ app, body, imageName, region, instanceType }) => {
         //auto generate the name
         const serverName = uniqueNamesGenerator({ 
             dictionaries: [ colors, animals ],
@@ -59,7 +59,9 @@ export default {
                         "owner": userEmail,
                     },
                     "user_data": Buffer.from(configUserData(serverName)).toString('base64'),
-                    "image": imageName
+                    "image": imageName,
+                    "region_name": region,
+                    "instance_type": instanceType
                 }, {
                 headers: {
                     'Authorization': `${process.env.PROVISIONER_API_TOKEN}`,
@@ -366,7 +368,7 @@ export default {
         const buttonsArray = [];
 
         for (const serverType of data.instances) {
-            data.serverType = serverType.instance_type;
+            data.instanceType = serverType.instance_type;
             buttonsArray.push({ text: serverType.instance_type, actionId: `button_select_libvirt_image_${serverType.instance_type}`, value: JSON.stringify(data) });
         };
         const buttons = buttonBuilder({ buttonsArray, headerText: 'Select a server', fallbackText: 'unsupported device' });

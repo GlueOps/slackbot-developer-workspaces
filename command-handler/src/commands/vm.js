@@ -112,7 +112,7 @@ export default {
           hetzner.createServer({ app, body, imageID, imageName, region, serverType });
         } else if (actionId.startsWith('button_create_image_libvirt')) {
           const { imageName, instanceType } = JSON.parse(body.actions[0].value);
-          libvirt.createServer({ app, body, imageName, instanceType });
+          libvirt.createServer({ app, body, imageName, region, instanceType });
         } else if (actionId === 'button_create_vm_hetzner') {
           //select the hetzner server to create before calling the create server
           hetzner.selectRegion({ app, body });
