@@ -52,64 +52,97 @@ export default {
         }
       } else if (actionId === 'button_create_vm') {
           const buttonsArray = [
-              { text: "aws", actionId: "button_create_vm_aws" },
-              { text: "hetzner", actionId: "button_create_vm_hetzner" },
-              { text: "libvirt", actionId: "button_create_vm_libvirt" },
+            { text: "aws", actionId: "button_create_vm_aws" },
+            { text: "hetzner", actionId: "button_create_vm_hetzner" },
+            { text: "libvirt", actionId: "button_create_vm_libvirt" },
           ];
           const buttons = buttonBuilder({ buttonsArray, headerText: "choose your platform", fallbackText: "device unsupported" });
           app.client.chat.postEphemeral({
-              channel: `${body.channel.id}`,
-              user: `${body.user.id}`,
-              text: 'select a platform',
-              ...buttons
+          channel: `${body.channel.id}`,
+          user: `${body.user.id}`,
+          text: 'select a platform',
+          ...buttons
           });
       } else if (actionId === 'button_start_aws') {
-          aws.startServer({ app, body, instanceId: data.instanceId, region: data.region });
+          const { instanceId, region } = JSON.parse(body.actions[0].value);
+            
+          aws.startServer({ app, body, instanceId, region });
       } else if (actionId === 'button_stop_aws') {
-          aws.stopServer({ app, body, instanceId: data.instanceId, region: data.region });
+          const { instanceId, region } = JSON.parse(body.actions[0].value);
+
+          aws.stopServer({ app, body, instanceId, region });
       } else if (actionId === 'button_delete_aws') {
-          aws.deleteServer({ app, body, instanceId: data.instanceId, serverName: data.serverName, region: data.region });
-      } else if (actionId === 'button_start_hetzner') {
-          hetzner.startServer({ app, body, vmID: data.vmID });
-      } else if (actionId === 'button_stop_hetzner') {
-          hetzner.stopServer({ app, body, vmID: data.vmID });
-      } else if (actionId === 'button_delete_hetzner') {
-          hetzner.deleteServer({ app, body, serverName: data.serverName });
-      } else if (actionId === 'button_start_libvirt') {
-          libvirt.startServer({ app, body, serverName: data.serverName, region: data.region });
-      } else if (actionId === 'button_stop_libvirt') {
-          libvirt.stopServer({ app, body, serverName: data.serverName, region: data.region });
-      } else if (actionId === 'button_delete_libvirt') {
-          libvirt.deleteServer({ app, body, serverName: data.serverName, region: data.region });
-      } else if (actionId.startsWith('button_create_image_aws')) {
-          aws.createServer({ app, body, imageName: data.imageName, ami: data.ami, region: data.region, instanceType: data.instanceType });
-      } else if (actionId.startsWith('button_create_image_hetzner')) {
-          hetzner.createServer({ app, body, imageID: data.imageID, imageName: data.imageName, region: data.region, serverType: data.serverType });
-      } else if (actionId.startsWith('button_create_image_libvirt')) {
-          libvirt.createServer({ app, body, imageName: data.imageName, region: data.region, instanceType: data.instanceType });
-      } else if (actionId === 'button_create_vm_hetzner') {
+          const { instanceId, serverName, region } = JSON.parse(body.actions[0].value);
+
+          //delete the server
+          aws.deleteServer({ app, body, instanceId, serverName, region });
+        } else if (actionId === 'button_start_hetzner') {
+          const { vmID } = JSON.parse(body.actions[0].value);
+          
+          //start a hetzner server
+          hetzner.startServer({ app, body, vmID });
+        } else if (actionId === 'button_stop_hetzner') {
+          const { vmID } = JSON.parse(body.actions[0].value);
+
+          //stop a hetzner server
+          hetzner.stopServer({ app, body, vmID });
+        } else if (actionId === 'button_delete_hetzner') {
+          const { serverName } = JSON.parse(body.actions[0].value);
+
+          //delete the server
+          hetzner.deleteServer({ app, body, serverName });
+        } else if (actionId === 'button_start_libvirt') {
+          const { serverName, region } = JSON.parse(body.actions[0].value);
+            
+          libvirt.startServer({ app, body, serverName, region });
+        } else if (actionId === 'button_stop_libvirt') {
+          const { serverName, region } = JSON.parse(body.actions[0].value);
+
+          libvirt.stopServer({ app, body, serverName, region });
+        } else if (actionId === 'button_delete_libvirt') {
+          const { serverName, region } = JSON.parse(body.actions[0].value);
+
+          //delete the server
+          libvirt.deleteServer({ app, body, serverName, region });
+        } else if (actionId.startsWith('button_create_image_aws')) {
+          const { imageName, ami, region, instanceType } = JSON.parse(body.actions[0].value);
+          aws.createServer({ app, body, imageName, ami, region, instanceType });
+        } else if (actionId.startsWith('button_create_image_hetzner')) {
+          const { imageID, imageName, region, serverType } = JSON.parse(body.actions[0].value);
+          hetzner.createServer({ app, body, imageID, imageName, region, serverType });
+        } else if (actionId.startsWith('button_create_image_libvirt')) {
+          const { imageName } = JSON.parse(body.actions[0].value);
+          libvirt.createServer({ app, body, imageName });
+        } else if (actionId === 'button_create_vm_hetzner') {
+          //select the hetzner server to create before calling the create server
           hetzner.selectRegion({ app, body });
-      } else if (actionId === 'button_create_vm_aws') {
+        } else if (actionId === 'button_create_vm_aws') {
+          //select the aws server to create before calling the create server
           aws.selectRegion({ app, body });
-      } else if (actionId === 'button_create_vm_libvirt') {
-          libvirt.selectRegion({ app, body });
-      } else if (actionId.startsWith('button_select_hetzner_server')) {
+        } else if (actionId === 'button_create_vm_libvirt') {
+          //select the libvirt image to create before calling the create server
+          libvirt.selectImage({ app, body });
+        } else if (actionId.startsWith('button_select_hetzner_server')) {
+          const data = JSON.parse(body.actions[0].value);
+          //select the hetzner server to create before calling the create server
           hetzner.selectServer({ app, body, data });
-      } else if (actionId.startsWith('button_select_libvirt_server')) {
-        libvirt.selectServer({ app, body, data });
-      } else if (actionId.startsWith('button_select_aws_server')) {
+        } else if (actionId.startsWith('button_select_aws_server')) {
+          const data = JSON.parse(body.actions[0].value);
+          //select the asw server to create before calling the create server
           aws.selectServer({ app, body, data });
-      } else if (actionId.startsWith('button_select_hetzner_image')) {
+        } else if (actionId.startsWith('button_select_hetzner_image')) {
+          const data = JSON.parse(body.actions[0].value);
+          //select the hetzner server to create before calling the create server
           hetzner.selectImage({ app, body, data });
-      } else if (actionId.startsWith('button_select_libvirt_image')) {
-          libvirt.selectImage({ app, body, data });
-      } else if (actionId.startsWith('button_select_aws_image')) {
+        } else if (actionId.startsWith('button_select_aws_image')) {
+          const data = JSON.parse(body.actions[0].value);
+          //select the asw server to create before calling the create server
           aws.selectImage({ app, body, data });
-      } else {
+        } else {
           response({
-              text: `This button is registered with the vm command, but does not have an action associated with it.`
+            text: `This button is registered with the vm command, but does not have an action associated with it.`
           });
-      }
+        }
     },
     
     run: async ({ event, app }) => {
