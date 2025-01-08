@@ -365,9 +365,8 @@ export default {
     selectServer: async ({app, body, data }) => {
         const buttonsArray = [];
 
-        console.log(data);
         for (const serverType of data.instances) {
-        buttonsArray.push({ text: serverType, actionId: `button_select_libvirt_image_${serverType}`, value: JSON.stringify(data) });
+        buttonsArray.push({ text: serverType.instance_type, actionId: `button_select_libvirt_image_${serverType.instance_type}`, value: JSON.stringify(data) });
         };
         const buttons = buttonBuilder({ buttonsArray, headerText: 'Select a server', fallbackText: 'unsupported device' });
         app.client.chat.postEphemeral({
