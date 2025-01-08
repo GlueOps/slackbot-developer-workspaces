@@ -16,7 +16,7 @@ const delay = (ms) => {
 }
 
 export default {
-    createServer: async({ app, body, imageName }) => {
+    createServer: async({ app, body, imageName, region, instanceType }) => {
         //auto generate the name
         const serverName = uniqueNamesGenerator({ 
             dictionaries: [ colors, animals ],
@@ -56,32 +56,22 @@ export default {
                 {
                     "vm_name": serverName,
                     "tags": {
-                        "owner": {
-                        "name": userEmail
-                        }
+                        "owner": userEmail,
                     },
                     "user_data": Buffer.from(configUserData(serverName)).toString('base64'),
-                    "image": imageName
+                    "image": imageName,
+                    "region_name": region,
+                    "instance_type": instanceType
                 }, {
                 headers: {
                     'Authorization': `${process.env.PROVISIONER_API_TOKEN}`,
                     'Content-Type': 'application/json'
                 },
-                timeout: 1000 * 60 * 2
+                timeout: 1000 * 60 * 5
             });
         } catch (error) {
             log.error('There was an error creating the server', axiosError(error));
 
-            app.client.chat.postEphemeral({
-            channel: `${body.channel.id}`,
-            user: `${body.user.id}`,
-            text: `Failed to create a server.`
-            });
-
-            return;
-        }
-        
-        if (serverRes.data !== 'Success') {
             app.client.chat.postEphemeral({
             channel: `${body.channel.id}`,
             user: `${body.user.id}`,
@@ -133,7 +123,7 @@ export default {
         });
     },
 
-    deleteServer: async ({ app, body, serverName }) => {
+    deleteServer: async ({ app, body, serverName, region }) => {
         //get servers from tailscale
         const { deviceId } = await getDevices(serverName)
 
@@ -151,7 +141,10 @@ export default {
 
         try {
             await axios.delete(`${process.env.PROVISIONER_URL}/v1/delete`, {
-                data: { "vm_name": serverName },
+                data: { 
+                    "vm_name": serverName,
+                    "region_name": region 
+                },
                 headers: {
                     'Authorization': `${process.env.PROVISIONER_API_TOKEN}`
                 }
@@ -194,7 +187,7 @@ export default {
             log.error('Failed to get servers from libvirt', axiosError(error));
         });
 
-        const data = response.data;
+        const data = response?.data;
 
         if (!data) {
             app.client.chat.postEphemeral({
@@ -208,7 +201,7 @@ export default {
     
         for (const server of data) {
         
-            const owner = server.description.owner.name;
+            const owner = server.tags.owner;
 
             const { deviceIP } = await getDevices(server.name);
             
@@ -217,6 +210,7 @@ export default {
             servers.push({
                 cloud: "libvirt",
                 serverName: `${server.name}`,
+                region: `${server.region_name}`,
                 status: `${server.state}`,
                 connect: `https://login.tailscale.com/admin/machines/${deviceIP}`
             });
@@ -226,10 +220,11 @@ export default {
         return servers;
     },
 
-    startServer: async({ app, body, serverName }) => {
+    startServer: async({ app, body, serverName, region }) => {
         try {
             await axios.post(`${process.env.PROVISIONER_URL}/v1/start`, {
-                "vm_name": serverName
+                "vm_name": serverName,
+                "region_name": region
             }, {
                 headers: {
                 'Authorization': `${process.env.PROVISIONER_API_TOKEN}`
@@ -252,10 +247,11 @@ export default {
         } 
     },
 
-    stopServer: async({ app, body, serverName }) => {
+    stopServer: async({ app, body, serverName, region }) => {
         try {
             await axios.post(`${process.env.PROVISIONER_URL}/v1/stop`, {
-                "vm_name": serverName
+                "vm_name": serverName,
+                "region_name": region
             }, {
                 headers: {
                 'Authorization': `${process.env.PROVISIONER_API_TOKEN}`
@@ -278,7 +274,46 @@ export default {
         } 
     },
 
-    selectImage: async({ app, body }) => {
+    selectRegion: async ({app, body }) => {
+        const buttonsArray = [];
+        //get the regions from the env variable
+        const response = await axios.get(`${process.env.PROVISIONER_URL}/v1/regions`, {
+            headers: {
+              'Authorization': `${process.env.PROVISIONER_API_TOKEN}`
+            },
+            timeout: 1000 * 60 * 5
+          })
+          .catch(error => {
+            log.error('Failed to get regions from libvirt', axiosError(error));
+        });
+
+        const regions = response?.data;
+        
+        //return if it fails to get a response from libvirt.
+        if (!regions) {
+        app.client.chat.postEphemeral({
+            channel: `${body.channel.id}`,
+            user: `${body.user.id}`,
+            text: `Failed to get region data from libvirt`
+        });
+
+        return;
+        }
+
+        //build button for user to select
+        for (const region of regions) {
+        buttonsArray.push({ text: region.region_name, actionId: `button_select_libvirt_server${region.region_name}`, value: JSON.stringify({ region: region.region_name, instances: region.available_instance_types }) });
+        }
+        const buttons = buttonBuilder({ buttonsArray, headerText: 'Select a region', fallbackText: 'unsupported device' });
+        app.client.chat.postEphemeral({
+        channel: `${body.channel.id}`,
+        user: `${body.user.id}`,
+        text: 'select a region',
+        ...buttons
+        });
+    },
+    
+    selectImage: async({ app, body, data }) => {
         //get the libvirt images
 
         // Fetch tags from the repository
@@ -306,7 +341,8 @@ export default {
 
         //build button for user to select
         for (const image of images) {
-            buttonsArray.push({ text: image, actionId: `button_create_image_libvirt_${image}`, value: JSON.stringify({ imageName: image }) })
+            data.imageName = image;
+            buttonsArray.push({ text: image, actionId: `button_create_image_libvirt_${image}`, value: JSON.stringify(data) })
         }
 
         const buttons = buttonBuilder({ buttonsArray, headerText: 'Select an image', fallbackText: 'unsupported device' });
@@ -317,4 +353,20 @@ export default {
             ...buttons
         });
     },
+
+    selectServer: async ({app, body, data }) => {
+        const buttonsArray = [];
+
+        for (const serverType of data.instances) {
+            data.instanceType = serverType.instance_type;
+            buttonsArray.push({ text: serverType.instance_type, actionId: `button_select_libvirt_image_${serverType.instance_type}`, value: JSON.stringify(data) });
+        };
+        const buttons = buttonBuilder({ buttonsArray, headerText: 'Select a server', fallbackText: 'unsupported device' });
+        app.client.chat.postEphemeral({
+        channel: `${body.channel.id}`,
+        user: `${body.user.id}`,
+        text: 'select a server',
+        ...buttons
+        });
+    }
 };

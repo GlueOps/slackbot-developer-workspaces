@@ -92,18 +92,18 @@ export default {
           //delete the server
           hetzner.deleteServer({ app, body, serverName });
         } else if (actionId === 'button_start_libvirt') {
-          const { serverName } = JSON.parse(body.actions[0].value);
+          const { serverName, region } = JSON.parse(body.actions[0].value);
             
-          libvirt.startServer({ app, body, serverName });
+          libvirt.startServer({ app, body, serverName, region });
         } else if (actionId === 'button_stop_libvirt') {
-          const { serverName } = JSON.parse(body.actions[0].value);
+          const { serverName, region } = JSON.parse(body.actions[0].value);
 
-          libvirt.stopServer({ app, body, serverName });
+          libvirt.stopServer({ app, body, serverName, region });
         } else if (actionId === 'button_delete_libvirt') {
-          const { serverName } = JSON.parse(body.actions[0].value);
+          const { serverName, region } = JSON.parse(body.actions[0].value);
 
           //delete the server
-          libvirt.deleteServer({ app, body, serverName });
+          libvirt.deleteServer({ app, body, serverName, region });
         } else if (actionId.startsWith('button_create_image_aws')) {
           const { imageName, ami, region, instanceType } = JSON.parse(body.actions[0].value);
           aws.createServer({ app, body, imageName, ami, region, instanceType });
@@ -111,8 +111,8 @@ export default {
           const { imageID, imageName, region, serverType } = JSON.parse(body.actions[0].value);
           hetzner.createServer({ app, body, imageID, imageName, region, serverType });
         } else if (actionId.startsWith('button_create_image_libvirt')) {
-          const { imageName } = JSON.parse(body.actions[0].value);
-          libvirt.createServer({ app, body, imageName });
+          const { imageName, region, instanceType } = JSON.parse(body.actions[0].value);
+          libvirt.createServer({ app, body, imageName, region, instanceType });
         } else if (actionId === 'button_create_vm_hetzner') {
           //select the hetzner server to create before calling the create server
           hetzner.selectRegion({ app, body });
@@ -121,7 +121,7 @@ export default {
           aws.selectRegion({ app, body });
         } else if (actionId === 'button_create_vm_libvirt') {
           //select the libvirt image to create before calling the create server
-          libvirt.selectImage({ app, body });
+          libvirt.selectRegion({ app, body });
         } else if (actionId.startsWith('button_select_hetzner_server')) {
           const data = JSON.parse(body.actions[0].value);
           //select the hetzner server to create before calling the create server
@@ -130,6 +130,10 @@ export default {
           const data = JSON.parse(body.actions[0].value);
           //select the asw server to create before calling the create server
           aws.selectServer({ app, body, data });
+        } else if (actionId.startsWith('button_select_libvirt_server')) {
+          const data = JSON.parse(body.actions[0].value);
+          //select the libvirt server type to create before calling the create server
+          libvirt.selectServer({ app, body, data });
         } else if (actionId.startsWith('button_select_hetzner_image')) {
           const data = JSON.parse(body.actions[0].value);
           //select the hetzner server to create before calling the create server
@@ -138,6 +142,10 @@ export default {
           const data = JSON.parse(body.actions[0].value);
           //select the asw server to create before calling the create server
           aws.selectImage({ app, body, data });
+        } else if (actionId.startsWith('button_select_libvirt_image')) {
+          const data = JSON.parse(body.actions[0].value);
+          //select the hetzner server to create before calling the create server
+          libvirt.selectImage({ app, body, data });
         } else {
           response({
             text: `This button is registered with the vm command, but does not have an action associated with it.`
