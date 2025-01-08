@@ -308,7 +308,7 @@ export default {
 
         //build button for user to select
         for (const region of regions) {
-        buttonsArray.push({ text: region.region_name, actionId: `button_select_libvirt_image_${region.region_name}`, value: JSON.stringify({ region: region.region_name, instances: region.available_instance_types }) });
+        buttonsArray.push({ text: region.region_name, actionId: `button_select_libvirt_server${region.region_name}`, value: JSON.stringify({ region: region.region_name, instances: region.available_instance_types }) });
         }
         const buttons = buttonBuilder({ buttonsArray, headerText: 'Select a region', fallbackText: 'unsupported device' });
         app.client.chat.postEphemeral({
@@ -362,11 +362,9 @@ export default {
 
     selectServer: async ({app, body, data }) => {
         const buttonsArray = [];
-        const serverTypes = process.env.HETZNER_SERVER_TYPES.split(',').map(server => server.trim()).filter(server => server);
 
-        for (const serverType of serverTypes) {
-        data.serverType = serverType;
-        buttonsArray.push({ text: serverType, actionId: `button_select_hetzner_image_${serverType}`, value: JSON.stringify(data) });
+        for (const serverType of data.instances) {
+        buttonsArray.push({ text: serverType, actionId: `button_select_libvirt_image_${serverType}`, value: JSON.stringify(data) });
         };
         const buttons = buttonBuilder({ buttonsArray, headerText: 'Select a server', fallbackText: 'unsupported device' });
         app.client.chat.postEphemeral({
