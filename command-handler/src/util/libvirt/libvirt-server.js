@@ -209,7 +209,7 @@ export default {
     
         for (const server of data) {
         
-            const owner = server.description.owner;
+            const owner = server.tags.owner;
 
             const { deviceIP } = await getDevices(server.name);
             
