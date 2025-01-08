@@ -285,7 +285,7 @@ export default {
     selectRegion: async ({app, body }) => {
         const buttonsArray = [];
         //get the regions from the env variable
-        const regions = await axios.get(`${process.env.PROVISIONER_URL}/v1/regions`, {
+        const response = await axios.get(`${process.env.PROVISIONER_URL}/v1/regions`, {
             headers: {
               'Authorization': `${process.env.PROVISIONER_API_TOKEN}`
             },
@@ -294,6 +294,8 @@ export default {
           .catch(error => {
             log.error('Failed to get regions from libvirt', axiosError(error));
         });
+
+        const regions = response?.data;
         
         //return if it fails to get a response from libvirt.
         if (!regions) {
