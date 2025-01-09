@@ -81,6 +81,8 @@ export default {
       } catch (error) {
         log.error('There was an error creating the server', axiosError(error));
 
+        log.info(serverRes);
+
         app.client.chat.postEphemeral({
           channel: `${body.channel.id}`,
           user: `${body.user.id}`,
