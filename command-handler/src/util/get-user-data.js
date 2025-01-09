@@ -6,6 +6,8 @@
 export default function configUserData(serverName) {
     const userData = `
         #cloud-config
+        hostname: ${serverName}
+        manage_etc_hosts: true
         runcmd:
             - ['tailscale', 'up', '--authkey=${process.env.TAILSCALE_AUTH_KEY}', '--hostname=${serverName}']
             - ['tailscale', 'set', '--ssh']
