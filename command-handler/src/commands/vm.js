@@ -54,7 +54,7 @@ export default {
           const buttonsArray = [
             { text: "aws", actionId: "button_create_vm_aws" },
             { text: "hetzner", actionId: "button_create_vm_hetzner" },
-            { text: "libvirt", actionId: "button_create_vm_libvirt" },
+            { text: "libvirt (beta)", actionId: "button_create_vm_libvirt" },
           ];
           const buttons = buttonBuilder({ buttonsArray, headerText: "choose your platform", fallbackText: "device unsupported" });
           app.client.chat.postEphemeral({
