@@ -261,7 +261,7 @@ export default {
             app.client.chat.postEphemeral({
               channel: `${body.channel.id}`,
               user: `${body.user.id}`,
-              text: `Server: ${serverName} has been Stoped.`
+              text: `Server: ${serverName} has been Stopped.`
             });
         } catch (error) {
             log.error('Failed to stop the server', axiosError(error));
