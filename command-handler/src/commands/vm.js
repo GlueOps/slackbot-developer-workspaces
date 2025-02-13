@@ -2,6 +2,7 @@ import hetzner from '../util/hetzner/hetzner-servers.js';
 import aws from '../util/aws/aws-server.js';
 import libvirt from '../util/libvirt/libvirt-server.js';
 import buttonBuilder from '../util/button-builder.js';
+import 'dotenv/config';
 
 export default {
     description: 'Sets up vm options',
@@ -12,9 +13,17 @@ export default {
         const blocks = [];  // Use this to accumulate all blocks
     
         // Fetch servers from AWS and Hetzner
-        servers.push(...await aws.listServers({ app, body }));
-        servers.push(...await hetzner.listServers({ app, body }));
-        servers.push(...await libvirt.listServers({ app, body }));
+        if (process.env.CLOUD_AWS_ENABLED.toLowerCase() === 'true') {
+          servers.push(...await aws.listServers({ app, body }));
+        }
+
+        if (process.env.CLOUD_HETZNER_ENABLED.toLowerCase() === 'true') {
+          servers.push(...await hetzner.listServers({ app, body }));
+        }
+
+        if (process.env.CLOUD_LIBVIRT_ENABLED.toLowerCase() === 'true') {
+          servers.push(...await libvirt.listServers({ app, body }));
+        }
     
         // Check if there are any servers
         if (servers.length) {
@@ -51,11 +60,20 @@ export default {
             }); 
         }
       } else if (actionId === 'button_create_vm') {
-          const buttonsArray = [
-            { text: "aws", actionId: "button_create_vm_aws" },
-            { text: "hetzner", actionId: "button_create_vm_hetzner" },
-            { text: "libvirt (beta)", actionId: "button_create_vm_libvirt" },
-          ];
+          const buttonsArray = [];
+
+          if (process.env.CLOUD_AWS_ENABLED.toLowerCase() === 'true') {
+            buttonsArray.push({ text: "aws", actionId: "button_create_vm_aws" });
+          }
+          
+          if (process.env.CLOUD_HETZNER_ENABLED.toLowerCase() === 'true') {
+            buttonsArray.push({ text: "hetzner", actionId: "button_create_vm_hetzner" });
+          }
+
+          if (process.env.CLOUD_LIBVIRT_ENABLED.toLowerCase() === 'true') {
+            buttonsArray.push({ text: "codespaces", actionId: "button_create_vm_libvirt" });
+          }
+
           const buttons = buttonBuilder({ buttonsArray, headerText: "choose your platform", fallbackText: "device unsupported" });
           app.client.chat.postEphemeral({
           channel: `${body.channel.id}`,
