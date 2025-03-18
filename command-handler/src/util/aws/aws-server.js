@@ -221,20 +221,29 @@ export default {
         const regions = process.env.AWS_REGIONS.split(',').map(region => region.trim()).filter(region => region);
         //get the instances from aws
         for (const region of regions) {
-            const instances = await getInstance({ userEmail, region });
-            // list the servers and build the buttons
-            for (const instance of instances) {
-                //get the tag name from the instance
-                const serverName = instance.Tags.find(tag => tag.Key === 'Name')?.Value;
-                const { deviceIP } = await getDevices(serverName);
+            try {
+                const instances = await getInstance({ userEmail, region });
+                // list the servers and build the buttons
+                for (const instance of instances) {
+                    //get the tag name from the instance
+                    const serverName = instance.Tags.find(tag => tag.Key === 'Name')?.Value;
+                    const { deviceIP } = await getDevices(serverName);
 
-                servers.push({
-                    cloud: "aws",
-                    serverName: `${serverName}`,
-                    serverID: `${instance.InstanceId}`,
-                    region: `${region}`,
-                    status: `${instance.State.Name}`,
-                    connect: `https://login.tailscale.com/admin/machines/${deviceIP}`
+                    servers.push({
+                        cloud: "aws",
+                        serverName: `${serverName}`,
+                        serverID: `${instance.InstanceId}`,
+                        region: `${region}`,
+                        status: `${instance.State.Name}`,
+                        connect: `https://login.tailscale.com/admin/machines/${deviceIP}`
+                    });
+                }
+            } catch(error) {
+                log.error(`Error listing servers in the ${region} region`, error);
+                app.client.chat.postEphemeral({
+                    channel: `${body.channel.id}`,
+                    user: `${body.user.id}`,
+                    text: `Error getting servers in the ${region} region in AWS`
                 });
             }
         }
@@ -279,34 +288,32 @@ export default {
     selectImage: async({ app, body, data }) => {
         const { region } = data;
         //get the aws images
-        const images = await getAwsImages({ region });
-        const buttonsArray = [];
+        try {
+            const images = await getAwsImages({ region });
+            const buttonsArray = [];
 
-        //return if it fails to get the images.
-        if (!images) {
-        app.client.chat.postEphemeral({
-            channel: `${body.channel.id}`,
-            user: `${body.user.id}`,
-            text: `Failed to get image data`
-        });
+            //build button for user to select
+            for (const image of images) {
+                data.imageName = image.Name;
+                data.ami = image.ImageId;
+                buttonsArray.push({ text: image.Name, actionId: `button_create_image_aws_${image.Name}`, value: JSON.stringify(data) })
+            }
 
-        return;
+            const buttons = buttonBuilder({ buttonsArray, headerText: 'Select an image', fallbackText: 'unsupported device' });
+            app.client.chat.postEphemeral({
+                channel: `${body.channel.id}`,
+                user: `${body.user.id}`,
+                text: 'select an image',
+                ...buttons
+            });
+        } catch (error) {
+            log.error('There was an error getting images from AWS', error);
+            app.client.chat.postEphemeral({
+                channel: `${body.channel.id}`,
+                user: `${body.user.id}`,
+                text: `Failed to get image data from AWS`
+            });
         }
-
-        //build button for user to select
-        for (const image of images) {
-            data.imageName = image.Name;
-            data.ami = image.ImageId;
-            buttonsArray.push({ text: image.Name, actionId: `button_create_image_aws_${image.Name}`, value: JSON.stringify(data) })
-        }
-
-        const buttons = buttonBuilder({ buttonsArray, headerText: 'Select an image', fallbackText: 'unsupported device' });
-        app.client.chat.postEphemeral({
-            channel: `${body.channel.id}`,
-            user: `${body.user.id}`,
-            text: 'select an image',
-            ...buttons
-        });
     },
 
     selectRegion: async ({app, body }) => {
