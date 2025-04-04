@@ -315,13 +315,11 @@ export default {
     
     selectImage: async({ app, body, data }) => {
         //get the libvirt images
-
-        // Fetch tags from the repository
         let images = [];
-
+        // Fetch tags from the repository
         try {
-            const res = await axios.get('https://api.github.com/repos/GlueOps/codespaces/tags');
-            images = res.data.slice(0, 5).map(tag => tag.name);
+            const res = await axios.get(`${process.env.PROVISIONER_URL}/v1/get-images`);
+            images = res.data.images;
         } catch (error) {
             log.error('Error fetching tags:', axiosError(error));
         }
@@ -341,7 +339,6 @@ export default {
 
         //build button for user to select
         for (const image of images) {
-            data.imageName = image;
             buttonsArray.push({ text: image, actionId: `button_create_image_libvirt_${image}`, value: JSON.stringify(data) })
         }
 
