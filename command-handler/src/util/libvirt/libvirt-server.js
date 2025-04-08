@@ -339,6 +339,7 @@ export default {
 
         //build button for user to select
         for (const image of images) {
+            data.imageName = image;
             buttonsArray.push({ text: image, actionId: `button_create_image_libvirt_${image}`, value: JSON.stringify(data) })
         }
 
