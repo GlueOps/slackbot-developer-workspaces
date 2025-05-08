@@ -84,7 +84,7 @@ export default {
         let attempts;
 
         let maxRetries = 13;  
-        for (attempts = 1; attempts <= maxRetries; attempts++) {
+        for (attempts = 1; attempts < maxRetries; attempts++) {
             //wait 10 seconds
             await delay(1000 * 10);
             try {
