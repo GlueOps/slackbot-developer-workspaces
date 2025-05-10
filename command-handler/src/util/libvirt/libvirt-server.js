@@ -101,7 +101,7 @@ export default {
             
             break;
             } catch (error) {
-                log.info(`Attempt ${attempts} Failed. error: ${error.message}, stack: ${error.stack} Retrying...`);
+                log.info(`Attempt ${attempts} Failed. Error: ${error.message}. Retrying...`);
             }
         }
 
