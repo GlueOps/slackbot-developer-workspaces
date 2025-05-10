@@ -83,22 +83,29 @@ export default {
         
         let attempts;
 
-        let maxRetries = 13;  
+        let maxRetries = 26;
         for (attempts = 1; attempts < maxRetries; attempts++) {
-            //wait 10 seconds
-            await delay(1000 * 10);
+            //wait 5 seconds
+            await delay(1000 * 5);
             try {
             //get servers and info from tailscale
             const { deviceId } = await getDevices(serverName);
+
+            //check if the deviceId is not null
+            if (!deviceId) {
+                log.info(`Attempt ${attempts} Failed. Device ID is null. Retrying...`);
+                continue;
+            }
+
             await tailscale.setTags({ userEmail, deviceId });
             
             break;
             } catch (error) {
-                log.info(`Attempt ${attempts} Failed. Backing off for 30 seconds`)
+                log.error(`Attempt ${attempts} Failed. Error: ${error.message}. Retrying...`);
             }
         }
 
-        if (attempts === maxRetries) {
+        if (attempts >= maxRetries) {
             try {
             throw new Error(`Failed to set tags in tailscale after ${attempts} retries`);
             } catch (error) {
