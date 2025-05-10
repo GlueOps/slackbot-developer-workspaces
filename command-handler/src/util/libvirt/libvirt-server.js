@@ -101,11 +101,11 @@ export default {
             
             break;
             } catch (error) {
-                log.info(`Attempt ${attempts} Failed. Error: ${error.message}. Retrying...`);
+                log.error(`Attempt ${attempts} Failed. Error: ${error.message}. Retrying...`);
             }
         }
 
-        if (attempts === maxRetries) {
+        if (attempts >= maxRetries) {
             try {
             throw new Error(`Failed to set tags in tailscale after ${attempts} retries`);
             } catch (error) {
