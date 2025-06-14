@@ -62,7 +62,7 @@ export default {
           text: 'select a platform',
           ...buttons
           });
-          
+
         } else if (actionId === 'button_start_libvirt') {
           const { serverName, region } = JSON.parse(body.actions[0].value);
             
@@ -80,7 +80,7 @@ export default {
           const { imageName, region, instanceType } = JSON.parse(body.actions[0].value);
           libvirt.createServer({ app, body, imageName, region, instanceType });
         } else if (actionId === 'button_create_vm_libvirt') {
-          //select the libvirt image to create before calling the create server
+          //select the libvirt region to create before calling the create server
           libvirt.selectRegion({ app, body });
         } else if (actionId.startsWith('button_select_libvirt_server')) {
           const data = JSON.parse(body.actions[0].value);
