@@ -9,7 +9,6 @@ while the bolt server listens on port 3000 by default. Read more in
 ### Dependencies
 - Docker installed
 - Slack App setup
-- Hetzner Account and configured with API Token in the cloud projects
 - Tailscale Account and configured with API Token to install, add, remove machines
 - [Provisioner](https://github.com/GlueOps/provisioner) API Deployed to provision VMs on libvirt
 
@@ -92,15 +91,6 @@ you will find your signing secret.
 4. Scroll down to App-Level-Tokens and generate a token with connections:write scope. This will be your app token
 
 5. In the left bar settings menu, Select Install App. This will generate your bot token for you.
-
-## Set up Hetzner
-1. Navigate to hetzner [cloud](https://console.hetzner.cloud/projects)
-
-2. Create a project.
-
-3. Once in the project, select security from the left menu bar options.
-
-4. Select API tokens and generate an API Token with Read & Write permissions. This will be your hetzner api token.
 
 ## Set up Tailscale
 
