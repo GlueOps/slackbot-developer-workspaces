@@ -9,7 +9,7 @@ export default function configUserData(serverName) {
         hostname: ${serverName}
         manage_etc_hosts: true
         users:
-            - name: root
+            - name: vscode
               ssh_authorized_keys:
                 - ${process.env.SSH_PUBLIC_KEY}
         runcmd:
