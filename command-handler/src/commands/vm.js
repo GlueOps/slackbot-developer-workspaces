@@ -10,23 +10,20 @@ export default {
         const servers = [];
         const blocks = [];  // Use this to accumulate all blocks
 
-        if (process.env.CLOUD_LIBVIRT_ENABLED.toLowerCase() === 'true') {
-          servers.push(...await libvirt.listServers({ app, body }));
-        }
-    
+        servers.push(...await libvirt.listServers({ app, body }));
         // Check if there are any servers
         if (servers.length) {
           for (const server of servers) {
               const buttonsArray = [
-                  { text: "Start", actionId: `button_start_${server.cloud}`, value: JSON.stringify({ instanceId: server.serverID, vmID: server.serverID, serverName: server.serverName, region: server.region }) },
-                  { text: "Stop", actionId: `button_stop_${server.cloud}`, value: JSON.stringify({ instanceId: server.serverID, vmID: server.serverID, serverName: server.serverName, region: server.region }) },
-                  { text: "Delete", actionId: `button_delete_${server.cloud}`, value: JSON.stringify({ instanceId: server.serverID, serverName: server.serverName, region: server.region }) }
+                  { text: "Start", actionId: `button_start_${server.cloud}`, value: JSON.stringify({ serverName: server.serverName, region: server.region }) },
+                  { text: "Stop", actionId: `button_stop_${server.cloud}`, value: JSON.stringify({ serverName: server.serverName, region: server.region }) },
+                  { text: "Delete", actionId: `button_delete_${server.cloud}`, value: JSON.stringify({ serverName: server.serverName, region: server.region }) }
               ];
   
               // Build buttons and add them to blocks
               const buttonBlock = buttonBuilder({
                   buttonsArray,
-                  headerText: `Cloud: ${server.cloud}\nServer: ${server.serverName}\nServer ID: ${server.serverID}\nRegion: ${server.region}\nStatus: ${server.status}\nConnect: ${server.connect}`,
+                  headerText: `Cloud: ${server.cloud}\nServer: ${server.serverName}\nRegion: ${server.region}\nStatus: ${server.status}\nConnect: ${server.connect}`,
                   fallbackText: "Device not supported to use VM command"
               });
   
@@ -50,19 +47,8 @@ export default {
         }
       } else if (actionId === 'button_create_vm') {
           const buttonsArray = [];
-
-          if (process.env.CLOUD_LIBVIRT_ENABLED.toLowerCase() === 'true') {
-            buttonsArray.push({ text: "codespaces", actionId: "button_create_vm_libvirt" });
-          }
-
-          const buttons = buttonBuilder({ buttonsArray, headerText: "choose your platform", fallbackText: "device unsupported" });
-          app.client.chat.postEphemeral({
-          channel: `${body.channel.id}`,
-          user: `${body.user.id}`,
-          text: 'select a platform',
-          ...buttons
-          });
-
+          //select the libvirt region to create before calling the create server
+          libvirt.selectRegion({ app, body });
         } else if (actionId === 'button_start_libvirt') {
           const { serverName, region } = JSON.parse(body.actions[0].value);
             
@@ -79,9 +65,6 @@ export default {
         } else if (actionId.startsWith('button_create_image_libvirt')) {
           const { imageName, region, instanceType } = JSON.parse(body.actions[0].value);
           libvirt.createServer({ app, body, imageName, region, instanceType });
-        } else if (actionId === 'button_create_vm_libvirt') {
-          //select the libvirt region to create before calling the create server
-          libvirt.selectRegion({ app, body });
         } else if (actionId.startsWith('button_select_libvirt_server')) {
           const data = JSON.parse(body.actions[0].value);
           //select the libvirt server type to create before calling the create server
