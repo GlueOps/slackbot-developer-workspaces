@@ -6,24 +6,36 @@ export default {
         const connectionType = 'c';
         const baseUrl = process.env.GUACAMOLE_SERVER_URL;
 
-        const tokenResponse = await axios.post(`${baseUrl}/api/tokens`, 
-            {
-            "username": process.env.GUACAMOLE_SERVER_USERNAME,
-            "password": process.env.GUACAMOLE_SERVER_PASSWORD
-            }, {
-            headers: {
-            'Content-Type': 'application/x-www-form-urlencoded'
-            }
-        });
+        let tokenResponse;
+        try {
+            tokenResponse = await axios.post(`${baseUrl}/api/tokens`, 
+                {
+                "username": process.env.GUACAMOLE_SERVER_USERNAME,
+                "password": process.env.GUACAMOLE_SERVER_PASSWORD
+                }, {
+                headers: {
+                'Content-Type': 'application/x-www-form-urlencoded'
+                }
+            });
+        } catch (error) {
+            console.error("Error fetching token:", error.message);
+            return [];
+        }
 
         const dataSource = tokenResponse.data.dataSource;
         const token = tokenResponse.data.authToken;
 
-        const connections = await axios.get(`${baseUrl}/api/session/data/${dataSource}/connections`, {
-            headers: {
-                "guacamole-token": `${token}`
-            }
-        });
+        let connections;
+        try {
+            connections = await axios.get(`${baseUrl}/api/session/data/${dataSource}/connections`, {
+                headers: {
+                    "guacamole-token": `${token}`
+                }
+            });
+        } catch (error) {
+            console.error("Error fetching connections:", error.message);
+            return [];
+        }
 
         for (const server of servers) {
             let connectionId = null;
