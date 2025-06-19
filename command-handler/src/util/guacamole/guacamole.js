@@ -8,11 +8,12 @@ export default {
 
         let tokenResponse;
         try {
+            const params = new URLSearchParams();
+            params.append('username', process.env.GUACAMOLE_SERVER_USERNAME);
+            params.append('password', process.env.GUACAMOLE_SERVER_PASSWORD);
+    
             tokenResponse = await axios.post(`${baseUrl}/api/tokens`, 
-                {
-                "username": process.env.GUACAMOLE_SERVER_USERNAME,
-                "password": process.env.GUACAMOLE_SERVER_PASSWORD
-                }, {
+                params, {
                 headers: {
                 'Content-Type': 'application/x-www-form-urlencoded'
                 }
