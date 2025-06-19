@@ -2,6 +2,7 @@ import logger from '../logger.js';
 import 'dotenv/config';
 import axios from 'axios';
 import tailscale from "../tailscale/tailscale.js";
+import getDevices from '../tailscale/get-devices-info.js';
 import buttonBuilder from "../button-builder.js";
 import configUserData from "../get-user-data.js";
 import axiosError from '../axios-error-handler.js';
