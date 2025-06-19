@@ -8,11 +8,16 @@ export default function configUserData(serverName) {
         #cloud-config
         hostname: ${serverName}
         manage_etc_hosts: true
+        disable_root: false
         runcmd:
             - ['tailscale', 'up', '--authkey=${process.env.TAILSCALE_AUTH_KEY}', '--hostname=${serverName}']
             - ['tailscale', 'set', '--ssh']
             - ['tailscale', 'set', '--accept-routes']
             - ['passwd', '-d', 'root']
+        users:
+            - name: root
+              ssh_authorized_keys:
+                - ${process.env.SSH_PUBLIC_KEY}
         `
         return userData;
 }
