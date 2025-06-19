@@ -60,6 +60,7 @@ export default {
 
             server.connect = fullUrl;
         }
+        console.log(servers)
         return servers;
     }
 }

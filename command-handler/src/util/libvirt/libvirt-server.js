@@ -11,10 +11,6 @@ import guacamole from '../guacamole/guacamole.js';
 
 const log = logger();
 
-const delay = (ms) => {
-    return new Promise(resolve => setTimeout(resolve, ms));
-}
-
 export default {
     createServer: async({ app, body, imageName, region, instanceType }) => {
         //auto generate the name
@@ -180,6 +176,7 @@ export default {
             }
         }
 
+        console.log(servers);
         return guacamole.getConnections(servers);
     },
 
