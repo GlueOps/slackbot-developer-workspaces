@@ -176,7 +176,6 @@ export default {
             }
         }
 
-        console.log(servers);
         return guacamole.getConnections(servers);
     },
 
