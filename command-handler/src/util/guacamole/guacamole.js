@@ -38,29 +38,28 @@ export default {
             return [];
         }
 
-        for (const server of servers) {
-            let connectionId = null;
-            let fullUrl = null;
-            for (const connection of Object.values(connections.data)) {
-                if (connection.name === server.serverName) {
-                    connectionId = connection.identifier;
-                }
-            }
-            const rawIdentifier = `${connectionId}\0${connectionType}\0${dataSource}`;
-            const encodedString = Buffer.from(rawIdentifier, 'utf-8').toString('base64');
-            const urlSafeId = encodedString
-                .replace(/\+/g, '-')
-                .replace(/\//g, '_')
-                .replace(/=+$/, '');
-            if (!baseUrl.endsWith('/')) {
-                fullUrl = `${baseUrl}/#/client/${urlSafeId}`;
-            } else {
-                fullUrl = `${baseUrl}#/client/${urlSafeId}`;
-            }
+        const connectionsMap = new Map(Object.values(connections.data).map(conn => [conn.name, conn]));
+        const updatedServers = servers.map(server => {
+            const matchingConnection = connectionsMap.get(server.serverName);
 
-            server.connect = fullUrl;
-        }
-        console.log(servers)
-        return servers;
+            if (matchingConnection) {
+                const connectionId = matchingConnection.identifier;
+                const rawIdentifier = `${connectionId}\0${connectionType}\0${dataSource}`;
+                const encodedString = Buffer.from(rawIdentifier, 'utf-8').toString('base64');
+                const urlSafeId = encodedString
+                    .replace(/\+/g, '-')
+                    .replace(/\//g, '_')
+                    .replace(/=+$/, '');
+                
+                const cleanBaseUrl = baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`;
+                const fullUrl = `${cleanBaseUrl}#/client/${urlSafeId}`;
+
+                return { ...server, connect: fullUrl };
+            }
+            
+            return server; 
+        });
+
+        return updatedServers;
     }
 }
