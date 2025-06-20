@@ -45,12 +45,7 @@ export default {
             if (matchingConnection) {
                 const connectionId = matchingConnection.identifier;
                 const rawIdentifier = `${connectionId}\0${connectionType}\0${dataSource}`;
-                const encodedString = Buffer.from(rawIdentifier, 'utf-8').toString('base64');
-                const urlSafeId = encodedString
-                    .replace(/\+/g, '-')
-                    .replace(/\//g, '_')
-                    .replace(/=+$/, '');
-                
+                const urlSafeId = Buffer.from(rawIdentifier, 'utf-8').toString('base64url');
                 const cleanBaseUrl = baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`;
                 const fullUrl = `${cleanBaseUrl}#/client/${urlSafeId}`;
 
