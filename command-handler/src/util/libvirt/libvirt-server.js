@@ -2,18 +2,14 @@ import logger from '../logger.js';
 import 'dotenv/config';
 import axios from 'axios';
 import tailscale from "../tailscale/tailscale.js";
-import formatUser from '../format-user.js';
 import getDevices from '../tailscale/get-devices-info.js';
 import buttonBuilder from "../button-builder.js";
 import configUserData from "../get-user-data.js";
 import axiosError from '../axios-error-handler.js';
 import { uniqueNamesGenerator, colors, animals } from 'unique-names-generator';
+import guacamole from '../guacamole/guacamole.js';
 
 const log = logger();
-
-const delay = (ms) => {
-    return new Promise(resolve => setTimeout(resolve, ms));
-}
 
 export default {
     createServer: async({ app, body, imageName, region, instanceType }) => {
@@ -41,7 +37,7 @@ export default {
             return;
         }
     
-        const userEmail = formatUser(info.user.profile.email);
+        const userEmail = info.user.profile.email;
 
         //post a status message
         app.client.chat.postEphemeral({
@@ -80,53 +76,13 @@ export default {
 
             return;
         }
-        
-        let attempts;
 
-        let maxRetries = 26;
-        for (attempts = 1; attempts < maxRetries; attempts++) {
-            //wait 5 seconds
-            await delay(1000 * 5);
-            try {
-            //get servers and info from tailscale
-            const { deviceId } = await getDevices(serverName);
-
-            //check if the deviceId is not null
-            if (!deviceId) {
-                log.info(`Attempt ${attempts} Failed. Device ID is null. Retrying...`);
-                continue;
-            }
-
-            await tailscale.setTags({ userEmail, deviceId });
-            
-            break;
-            } catch (error) {
-                log.error(`Attempt ${attempts} Failed. Error: ${error.message}. Retrying...`);
-            }
-        }
-
-        if (attempts >= maxRetries) {
-            try {
-            throw new Error(`Failed to set tags in tailscale after ${attempts} retries`);
-            } catch (error) {
-                log.error({message: error.message, stack: error.stack});
-                app.client.chat.postEphemeral({
-                channel: `${body.channel.id}`,
-                user: `${body.user.id}`,
-                text: `Failed to set tags in tailscale`
-                });
-                return;
-            }
-        }
-
-        //get servers and info from tailscale
-        const { deviceIP } = await getDevices(serverName);
-
-        //return info for tailscale
+        const server = await guacamole.getConnections([{ serverName: serverName, connect: null }]);
+        //return info for guacamole
         app.client.chat.postEphemeral({
             channel: `${body.channel.id}`,
             user: `${body.user.id}`,
-            text: `Cloud: libvirt\nServer: ${serverName}\nStatus: Created\nConnect: https://login.tailscale.com/admin/machines/${deviceIP}`
+            text: `Cloud: libvirt\nServer: ${server[0].serverName}\nStatus: Created\nConnect: ${server[0].connect}\nRegion: ${region}`
         });
     },
 
@@ -182,7 +138,7 @@ export default {
         log.error('There was an error getting user.info from slack', error);
         });
 
-        const userEmail = formatUser(info.user.profile.email);
+        const userEmail = info.user.profile.email;
 
         const response = await axios.get(`${process.env.PROVISIONER_URL}/v1/list`, {
             headers: {
@@ -207,11 +163,7 @@ export default {
         }
     
         for (const server of data) {
-        
             const owner = server.tags.owner;
-
-            const { deviceIP } = await getDevices(server.name);
-            
             // Check if the Owner matches the search value
             if (owner === userEmail) {
             servers.push({
@@ -219,12 +171,12 @@ export default {
                 serverName: `${server.name}`,
                 region: `${server.region_name}`,
                 status: `${server.state}`,
-                connect: `https://login.tailscale.com/admin/machines/${deviceIP}`
+                connect: null
             });
             }
         }
 
-        return servers;
+        return guacamole.getConnections(servers);
     },
 
     startServer: async({ app, body, serverName, region }) => {
