@@ -7,7 +7,6 @@ import buttonBuilder from "../button-builder.js";
 import configUserData from "../get-user-data.js";
 import axiosError from '../axios-error-handler.js';
 import { uniqueNamesGenerator, colors, animals } from 'unique-names-generator';
-import guacamole from '../guacamole/guacamole.js';
 
 const log = logger();
 
@@ -77,12 +76,11 @@ export default {
             return;
         }
 
-        const server = await guacamole.getConnections([{ serverName: serverName, connect: null }]);
-        //return info for guacamole
+        //return info for connection
         app.client.chat.postEphemeral({
             channel: `${body.channel.id}`,
             user: `${body.user.id}`,
-            text: `Cloud: libvirt\nServer: ${server[0].serverName}\nStatus: Created\nConnect: ${server[0].connect}\nRegion: ${region}`
+            text: `Cloud: libvirt\nServer: ${serverName}\nStatus: Created\nConnect: ${process.env.GUACAMOLE_CONNECTION_URL}\nRegion: ${region}`
         });
     },
 
@@ -171,12 +169,12 @@ export default {
                 serverName: `${server.name}`,
                 region: `${server.region_name}`,
                 status: `${server.state}`,
-                connect: null
+                connect: process.env.GUACAMOLE_CONNECTION_URL
             });
             }
         }
 
-        return guacamole.getConnections(servers);
+        return servers;
     },
 
     startServer: async({ app, body, serverName, region }) => {
