@@ -1,8 +1,6 @@
 import logger from '../logger.js';
 import 'dotenv/config';
 import axios from 'axios';
-import tailscale from "../tailscale/tailscale.js";
-import getDevices from '../tailscale/get-devices-info.js';
 import buttonBuilder from "../button-builder.js";
 import configUserData from "../get-user-data.js";
 import axiosError from '../axios-error-handler.js';
@@ -85,21 +83,6 @@ export default {
     },
 
     deleteServer: async ({ app, body, serverName, region }) => {
-        //get servers from tailscale
-        const { deviceId } = await getDevices(serverName)
-
-        //delete the device from tailscale
-        await tailscale.removeDevice({ deviceId })
-        .catch(error => {
-          log.error('Failed to delete device in tailscale', axiosError(error));
-
-          app.client.chat.postEphemeral({
-            channel: `${body.channel.id}`,
-            user: `${body.user.id}`,
-            text: `Failed to delete Server: ${serverName} from Tailscale`
-          });
-        });
-
         try {
             await axios.delete(`${process.env.PROVISIONER_URL}/v1/delete`, {
                 data: { 
