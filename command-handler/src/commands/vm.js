@@ -30,12 +30,21 @@ export default {
               // Push the blocks into the main blocks array
               blocks.push(...buttonBlock.blocks);
           }
-  
+
+          // Add header message at the end
+          blocks.push({
+              "type": "section",
+              "text": {
+                  "type": "mrkdwn",
+                  "text": `Access your existing VM's with: <${process.env.GUACAMOLE_CONNECTION_URL}|Guacamole>`
+              }
+          });
+
           // Send the combined blocks in a single message
           await app.client.chat.postEphemeral({
               channel: `${body.channel.id}`,
               user: `${body.user.id}`,
-              text: 'Server List',
+              text: 'Yo here are your servers bro',
               blocks,  // Combine all button blocks
           });
         } else {
@@ -86,7 +95,7 @@ export default {
         { text: "Create Server", actionId: "button_create_vm" },
       ];
       const buttons = buttonBuilder({ buttonsArray, 
-        headerText: `Access existing VM's with: <${process.env.GUACAMOLE_CONNECTION_URL}|${process.env.GUACAMOLE_CONNECTION_URL}>
+        headerText: `Access existing VM's with: <${process.env.GUACAMOLE_CONNECTION_URL}|Guacamole>>
 
 Click one of the buttons below for VM options:`, 
         fallbackText: "device unsupported to use vm command" 
