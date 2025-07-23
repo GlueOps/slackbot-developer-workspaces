@@ -36,7 +36,7 @@ export default {
               "type": "section",
               "text": {
                   "type": "mrkdwn",
-                  "text": `Access your existing VM's with: <${process.env.GUACAMOLE_CONNECTION_URL}|Guacamole>`
+                  "text": `Access your existing VMs with: <${process.env.GUACAMOLE_CONNECTION_URL}|Guacamole>`
               }
           });
 
