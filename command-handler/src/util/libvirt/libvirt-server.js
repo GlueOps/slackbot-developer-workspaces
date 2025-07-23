@@ -78,7 +78,7 @@ export default {
         app.client.chat.postEphemeral({
             channel: `${body.channel.id}`,
             user: `${body.user.id}`,
-            text: `Server: ${serverName}\nStatus: Created\nConnect: ${process.env.GUACAMOLE_CONNECTION_URL}\nRegion: ${region}`
+            text: `Server: ${serverName}\nStatus: Created\nRegion: ${region}`
         });
     },
 
