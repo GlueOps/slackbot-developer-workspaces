@@ -44,7 +44,7 @@ export default {
           await app.client.chat.postEphemeral({
               channel: `${body.channel.id}`,
               user: `${body.user.id}`,
-              text: 'Yo here are your servers bro',
+              text: 'Server List',
               blocks,  // Combine all button blocks
           });
         } else {
