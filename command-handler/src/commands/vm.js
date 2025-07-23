@@ -95,7 +95,7 @@ export default {
         { text: "Create Server", actionId: "button_create_vm" },
       ];
       const buttons = buttonBuilder({ buttonsArray, 
-        headerText: `Access existing VM's with: <${process.env.GUACAMOLE_CONNECTION_URL}|Guacamole>
+        headerText: `Access your existing VM's with: <${process.env.GUACAMOLE_CONNECTION_URL}|Guacamole>
 
 Click one of the buttons below for VM options:`, 
         fallbackText: "device unsupported to use vm command" 
