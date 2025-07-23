@@ -78,7 +78,7 @@ export default {
         app.client.chat.postEphemeral({
             channel: `${body.channel.id}`,
             user: `${body.user.id}`,
-            text: `Cloud: libvirt\nServer: ${serverName}\nStatus: Created\nConnect: ${process.env.GUACAMOLE_CONNECTION_URL}\nRegion: ${region}`
+            text: `Server: ${serverName}\nStatus: Created\nConnect: ${process.env.GUACAMOLE_CONNECTION_URL}\nRegion: ${region}`
         });
     },
 
@@ -148,11 +148,9 @@ export default {
             // Check if the Owner matches the search value
             if (owner === userEmail) {
             servers.push({
-                cloud: "libvirt",
                 serverName: `${server.name}`,
                 region: `${server.region_name}`,
-                status: `${server.state}`,
-                connect: process.env.GUACAMOLE_CONNECTION_URL
+                status: `${server.state}`
             });
             }
         }

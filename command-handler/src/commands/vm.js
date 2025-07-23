@@ -15,15 +15,15 @@ export default {
         if (servers.length) {
           for (const server of servers) {
               const buttonsArray = [
-                  { text: "Start", actionId: `button_start_${server.cloud}`, value: JSON.stringify({ serverName: server.serverName, region: server.region }) },
-                  { text: "Stop", actionId: `button_stop_${server.cloud}`, value: JSON.stringify({ serverName: server.serverName, region: server.region }) },
-                  { text: "Delete", actionId: `button_delete_${server.cloud}`, value: JSON.stringify({ serverName: server.serverName, region: server.region }) }
+                  { text: "Start", actionId: `button_start_libvirt`, value: JSON.stringify({ serverName: server.serverName, region: server.region }) },
+                  { text: "Stop", actionId: `button_stop_libvirt`, value: JSON.stringify({ serverName: server.serverName, region: server.region }) },
+                  { text: "Delete", actionId: `button_delete_libvirt`, value: JSON.stringify({ serverName: server.serverName, region: server.region }) }
               ];
   
               // Build buttons and add them to blocks
               const buttonBlock = buttonBuilder({
                   buttonsArray,
-                  headerText: `Cloud: ${server.cloud}\nServer: ${server.serverName}\nRegion: ${server.region}\nStatus: ${server.status}\nConnect: ${server.connect}`,
+                  headerText: `Server: ${server.serverName}\nRegion: ${server.region}\nStatus: ${server.status}\nConnect: ${server.connect}`,
                   fallbackText: "Device not supported to use VM command"
               });
   
@@ -86,7 +86,9 @@ export default {
         { text: "Create Server", actionId: "button_create_vm" },
       ];
       const buttons = buttonBuilder({ buttonsArray, 
-        headerText: "Click one of the buttons below for VM options:", 
+        headerText: `Access existing VM's with: <${process.env.GUACAMOLE_CONNECTION_URL}|${process.env.GUACAMOLE_CONNECTION_URL}>
+
+Click one of the buttons below for VM options:`, 
         fallbackText: "device unsupported to use vm command" 
       });
       app.client.chat.postEphemeral({
