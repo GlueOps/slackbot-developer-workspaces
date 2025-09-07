@@ -1,7 +1,7 @@
 {
   "name": "bot",
   "version": "1.0.0",
-  "main": "./src/index.js",
+  "main": "app.js",
   "type": "module",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
@@ -12,6 +12,10 @@
   "description": "",
   "dependencies": {
     "@slack/bolt": "^4.0.0",
-    "dotenv": "^17.0.0"
+    "dotenv": "^17.0.0",
+    "axios": "^1.7.7",
+    "unique-names-generator": "^4.7.1",
+    "winston": "^3.14.2",
+    "express": "^5.0.0"
   }
 }

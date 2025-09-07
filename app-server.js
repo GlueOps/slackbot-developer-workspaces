@@ -3,7 +3,7 @@
 */
 
 import express from 'express';
-import  logger from '../command-handler/src/util/logger.js';
+import  logger from './util/logger.js';
 
 // This function creates an express server that listens for incoming requests from Slack.
 export default (receiver) => {
