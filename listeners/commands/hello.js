@@ -10,13 +10,15 @@ const delay = (ms) => {
 export default {
     description: 'Replies with Hello',
 
-    run: async ({ response, event }) => {
+    run: async ({ event, app }) => {
         //call the delay function to simulate a delay of 5 seconds.
         await delay(5000);
 
         //send the response back to the slack channel After the delay
-        response({
-            text: `Hey there <@${event.user}>!`
-        });
+        app.client.chat.postEphemeral({
+            channel: event.channel_id,
+            user: event.user_id,
+            text: `hello <@${event.user_id}>!`,
+      });
     }
 }

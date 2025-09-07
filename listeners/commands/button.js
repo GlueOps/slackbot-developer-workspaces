@@ -4,7 +4,7 @@
 
 */
 
-import logger from "command-handler/src/util/logger.js";
+import logger from "../../util/logger.js";
 
 //initialize logger
 const log = logger();
@@ -13,10 +13,11 @@ export default {
     description: 'creates a button',
 
     //button click event handler This is called when the button is clicked
-    button: ({ handler, body, response }) => {
+    button: ({ app, body }) => {
         log.info("Clicked the button", body.user)
-        response({
-            text: `<@${body.user.id}> clicked the Button`
+        app.client.chat.postMessage({
+            channel: body.channel.id,
+            text: `Button clicked by <@${body.user.id}>`
         })
     },
     
@@ -24,19 +25,17 @@ export default {
     run method is called when the command is executed
     To execute this command type !button in the slack channel where the bot is installed
     The parameters are destructured from the object passed to the run method
-    response is used to send the response back to the slack channel
     event is the event object that contains the event details from slack.
     */
-    run: ({ response, event }) => {
-
-        response({
-          //blocks is used to create a button in the slack message
+    run: ({ event, app }) => {
+        app.client.chat.postMessage({
+            channel: event.channel_id,
             blocks: [
                 {
                   "type": "section",
                   "text": {
                     "type": "mrkdwn",
-                    "text": `Hey there <@${event.user}>!`
+                    "text": `Hey there <@${event.user_name}>!`
                   },
                   "accessory": {
                     "type": "button",
@@ -49,7 +48,7 @@ export default {
                 }
               ],
               //text is fallback text that is displayed when the message is not supported
-              text: `Hey there <@${event.user}>!`
+              text: `Hey there <@${event.user_name}>!`
         })
     }
 }

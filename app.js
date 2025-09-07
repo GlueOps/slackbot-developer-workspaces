@@ -1,10 +1,9 @@
 import pkg from '@slack/bolt'
 const { App, ExpressReceiver, LogLevel } = pkg;
-import CH from 'command-handler';
-import path from 'path';
+import registerListeners from './listeners/index.js';
 import 'dotenv/config';
-import server from '../../server/server.js';
-import logger from 'command-handler/src/util/logger.js';
+import server from './app-server.js';
+import logger from './util/logger.js';
 
 const log = logger();
 
@@ -36,13 +35,8 @@ const app = new App({
     logger: customLogger,
 });
 
-//function that starts the server and initializes the command handler
+//function that starts the server and initializes the listeners
 (async () => {
     server(receiver);
-    new CH({
-        //passing the bolt app to the command handler
-        app,
-        //directory where the commands are located
-        commandsDir: path.join(process.cwd(), 'src', 'commands'),
-    });
+    await registerListeners(app);
 })();

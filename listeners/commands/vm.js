@@ -1,5 +1,5 @@
-import libvirt from '../util/libvirt/libvirt-server.js';
-import buttonBuilder from '../util/button-builder.js';
+import libvirt from '../../util/libvirt/libvirt-server.js';
+import buttonBuilder from '../../util/button-builder.js';
 import 'dotenv/config';
 
 export default {
@@ -101,8 +101,8 @@ Click one of the buttons below for VM options:`,
         fallbackText: "device unsupported to use vm command" 
       });
       app.client.chat.postEphemeral({
-        channel: `${event.channel}`,
-        user: `${event.user}`,
+        channel: event.channel_id,
+        user: event.user_id,
         text: 'Create a vm',
         ...buttons
       });       

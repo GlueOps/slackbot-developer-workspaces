@@ -1,15 +1,14 @@
 # slackbot-developer-workspaces
 
 This is the source code for a Slack bot. It is coded in Javascript using bolt.
-It has three components: bot, command-handler, and server. The bot is set up
-to run in socket mode. The server is a heart-beat monitor and runs on port 5000,
-while the bolt server listens on port 3000 by default. Read more in 
+The bot is set up to run in socket mode. The server is a heart-beat monitor 
+and runs on port 5000 while the bolt server listens on port 3000 by default.
 
 # Installation
 ### Dependencies
 - Docker installed
 - Slack App setup
-- Tailscale Account and configured with API Token to install, add, remove machines
+- Tailscale Account and configured with auth token to add machines
 - [Provisioner](https://github.com/GlueOps/provisioner) API Deployed to provision VMs on libvirt
 
 ### Steps
@@ -18,7 +17,7 @@ while the bolt server listens on port 3000 by default. Read more in
 2. You can then run the bot `docker run --env-file <path-to-.env-file -d -p 5000:5000 -p 3000:3000 --name dev-bot <ghcr image>`
 **If you change the bolt port or the server port, make sure to update that in the docker command**
 
-3. You can find an example.env file in bot/example.env. Steps to generate all the tokens required and set up the bot are below.
+3. refer to the example.env and steps to generate all the tokens required to set up the app below.
 
 # Compile
 If you would like to change the source code, or compile the slack Bot yourself:
@@ -33,57 +32,12 @@ If you would like to change the source code, or compile the slack Bot yourself:
 4. You can then run the bot `docker run --env-file <path-to-.env-file -d -p 5000:5000 -p 3000:3000 --name dev-bot <ghcr image>`
 **If you change the bolt port or the server port, make sure to update that in the docker command**
 
-5. You can find an example.env file in bot/example.env. Steps to generate all the tokens required and set up the bot are below.
+5. refer to the example.env and steps to generate all the tokens required to set up the app below.
 
 ## Set up Slack App
 1. You will need to create a [slack app](https://api.slack.com/apps)
 
-2. In the app creation progress, create new app from a manifest:
-
-```json
-{
-    "display_information": {
-        "name": "Dev Bot"
-    },
-    "features": {
-        "bot_user": {
-            "display_name": "Dev Bot",
-            "always_online": true
-        }
-    },
-    "oauth_config": {
-        "scopes": {
-            "bot": [
-                "channels:history",
-                "chat:write",
-                "groups:history",
-                "im:history",
-                "mpim:history",
-                "users:read.email",
-                "users:read"
-            ]
-        }
-    },
-    "settings": {
-        "event_subscriptions": {
-            "request_url": "<your server's url>/slack/events",
-            "bot_events": [
-                "message.channels",
-                "message.groups",
-                "message.im",
-                "message.mpim"
-            ]
-        },
-        "interactivity": {
-            "is_enabled": true,
-            "request_url": "<your server's url>/slack/events"
-        },
-        "org_deploy_enabled": false,
-        "socket_mode_enabled": false,
-        "token_rotation_enabled": false
-    }
-}
-```
+2. In the app creation progress, create new app from a manifest and copy the manifest.json
 
 3. Once you have created your Slack App, in the App credentials under Basic information,
 you will find your signing secret.
@@ -98,15 +52,11 @@ _Note: For the steps below use a service account that has Admin permissions._
 
 1. Navigate to tailscale [admin console](https://login.tailscale.com/admin/machines)
 
-2. In the top menu bar, click DNS. This will give you your Tailnet name.
+2. In the top menu bar select Settings.
 
-3. In the top menu bar select Settings.
-
-4. In the left menu bar select keys.
+3. In the left menu bar select keys.
 
 5. Generate an auth key: you will need to give it a description, and select Reusable. The key must be rotated and has a max expiration of 90 days, but can be shortened. Leave Ephemeral, and Tags unchecked and generate the key. This will be your tailscale auth key.
-
-6. Generate an API acess token: you will need to give it a description. The key must be rotated and has a max expiration of 90 days, but can be shortened. This will be your Tailscale api token.
 
 ### Setup tailscale ACLs
 
@@ -216,5 +166,6 @@ When testing new policies/ACLs it's best to just create a separate tailnet/tails
 ```
 
 # Adding Bot commands
-The bot is set up with a command handler to process text commands with a prefix of ! i.e. !vm. It currently does not support slash commands.
-The bot has some built in example commands found in bot/src/commands. To register a new command, create a file command.js in either the bot/src/commands, or command-handler/src/commands with `myCommand.js` being the command you want to register. 
+To register a new command, create a file `myCommand.js` in listeners/commands
+with `myCommand.js` being the command you want to register. You then need to
+add the /command in the [slack api](https://api.slack.com)
