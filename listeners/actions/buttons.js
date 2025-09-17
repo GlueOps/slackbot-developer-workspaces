@@ -9,9 +9,6 @@
 
 const registeredButtons = {
     //static buttons that are defined by the programmer
-    button_list_servers: {
-        command: 'vm',
-    },
     button_delete_vm: {
         command: 'vm',
     },
@@ -34,19 +31,7 @@ const registeredButtons = {
     "^button_delete_": {
         command: 'vm',
         isRegex: true,
-    },
-    "^button_create_image_": {
-        command: 'vm',
-        isRegex: true,
-    },
-    "^button_create_vm": {
-        command: 'vm',
-        isRegex: true,
-    },
-    "^button_select_": {
-        command: 'vm',
-        isRegex: true,
-    },
+    }
 };
 
 export default registeredButtons;

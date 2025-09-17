@@ -1,7 +1,6 @@
 import logger from '../logger.js';
 import 'dotenv/config';
 import axios from 'axios';
-import buttonBuilder from "../button-builder.js";
 import configUserData from "../get-user-data.js";
 import axiosError from '../axios-error-handler.js';
 import { uniqueNamesGenerator, colors, animals } from 'unique-names-generator';
@@ -113,7 +112,7 @@ export default {
     listServers: async({ app, body }) => {
         const servers = [];
         const info = await app.client.users.info({
-        user: body.user.id
+        user: body.user_id
         })
         .catch(error => {
         log.error('There was an error getting user.info from slack', error);
@@ -135,8 +134,8 @@ export default {
 
         if (!data) {
             app.client.chat.postEphemeral({
-              channel: `${body.channel.id}`,
-              user: `${body.user.id}`,
+              channel: body.channel_id,
+              user: body.user_id,
               text: `Failed to get server data from libvirt`
             });
 
@@ -210,99 +209,5 @@ export default {
               text: `Failed to stop Server: ${serverName}.`
             });
         } 
-    },
-
-    selectRegion: async ({app, body }) => {
-        const buttonsArray = [];
-        //get the regions from the env variable
-        const response = await axios.get(`${process.env.PROVISIONER_URL}/v1/regions`, {
-            headers: {
-              'Authorization': `${process.env.PROVISIONER_API_TOKEN}`
-            },
-            timeout: 1000 * 60 * 5
-          })
-          .catch(error => {
-            log.error('Failed to get regions from libvirt', axiosError(error));
-        });
-
-        const regions = response?.data;
-        
-        //return if it fails to get a response from libvirt.
-        if (!regions) {
-        app.client.chat.postEphemeral({
-            channel: `${body.channel.id}`,
-            user: `${body.user.id}`,
-            text: `Failed to get region data from libvirt`
-        });
-
-        return;
-        }
-
-        //build button for user to select
-        for (const region of regions) {
-        buttonsArray.push({ text: region.region_name, actionId: `button_select_libvirt_server${region.region_name}`, value: JSON.stringify({ region: region.region_name, instances: region.available_instance_types }) });
-        }
-        const buttons = buttonBuilder({ buttonsArray, headerText: 'Select a region', fallbackText: 'unsupported device' });
-        app.client.chat.postEphemeral({
-        channel: `${body.channel.id}`,
-        user: `${body.user.id}`,
-        text: 'select a region',
-        ...buttons
-        });
-    },
-    
-    selectImage: async({ app, body, data }) => {
-        //get the libvirt images
-        let images = [];
-        // Fetch tags from the repository
-        try {
-            const res = await axios.get(`${process.env.PROVISIONER_URL}/v1/get-images`);
-            images = res.data.images;
-        } catch (error) {
-            log.error('Error fetching tags:', axiosError(error));
-        }
-
-        const buttonsArray = [];
-
-        //return if it fails to get the images.
-        if (!images) {
-        app.client.chat.postEphemeral({
-            channel: `${body.channel.id}`,
-            user: `${body.user.id}`,
-            text: `Failed to get image data`
-        });
-
-        return;
-        }
-
-        //build button for user to select
-        for (const image of images) {
-            data.imageName = image;
-            buttonsArray.push({ text: image, actionId: `button_create_image_libvirt_${image}`, value: JSON.stringify(data) })
-        }
-
-        const buttons = buttonBuilder({ buttonsArray, headerText: 'Select an image', fallbackText: 'unsupported device' });
-        app.client.chat.postEphemeral({
-            channel: `${body.channel.id}`,
-            user: `${body.user.id}`,
-            text: 'select an image',
-            ...buttons
-        });
-    },
-
-    selectServer: async ({app, body, data }) => {
-        const buttonsArray = [];
-
-        for (const serverType of data.instances) {
-            data.instanceType = serverType.instance_type;
-            buttonsArray.push({ text: serverType.instance_type, actionId: `button_select_libvirt_image_${serverType.instance_type}`, value: JSON.stringify(data) });
-        };
-        const buttons = buttonBuilder({ buttonsArray, headerText: 'Select a server', fallbackText: 'unsupported device' });
-        app.client.chat.postEphemeral({
-        channel: `${body.channel.id}`,
-        user: `${body.user.id}`,
-        text: 'select a server',
-        ...buttons
-        });
     }
 };

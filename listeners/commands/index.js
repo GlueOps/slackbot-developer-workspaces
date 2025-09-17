@@ -28,9 +28,9 @@ export default async function register(app) {
         }
 
         //register the command
-        app.command(`/${commandName}`, async ({ command, ack }) => {
+        app.command(`/${commandName}`, async ({ command, ack, body }) => {
             await ack();
-            await commandObject.run({ event: command, app });
+            await commandObject.run({ event: command, app, body });
         });
     }
 }
