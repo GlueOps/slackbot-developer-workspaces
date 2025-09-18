@@ -4,19 +4,19 @@ export default function vmModal({ regions = [], images = [], servers = [] } = {}
   return Modal({ title: 'Create VM', submit: 'Submit', callbackId: 'vm-modal' })
     .blocks(
 
-      Blocks.Section({ blockId: 'region' })
-        .text('*Region*')
-        .accessory(
-          Elements.StaticSelect({ actionId: 'region' })
-            .placeholder('Select a region')
-            .options(
-              regions.length > 0
-                ? regions.map(region =>
-                    Bits.Option({ text: region.region_name, value: region.region_name })
-                  )
-                : [Bits.Option({ text: 'No regions available', value: 'placeholder' })]
-            )
-        ),
+      Blocks.Input({ label: 'Region', blockId: 'region' })
+      .dispatchAction(true)
+      .element(
+        Elements.StaticSelect({ actionId: 'region' })
+          .placeholder('Select a region')
+          .options(
+            regions.length > 0
+              ? regions.map(region =>
+                  Bits.Option({ text: region.region_name, value: region.region_name })
+                )
+              : [Bits.Option({ text: 'No regions available', value: 'placeholder' })]
+          )
+      ),
 
       Blocks.Input({ label: 'Image', blockId: 'image' }).element(
         Elements.StaticSelect({ actionId: 'image' })
