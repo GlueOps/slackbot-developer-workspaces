@@ -8,5 +8,5 @@ export default async function vmModalCallback({ ack, view, body, client }) {
   const selectedImage = values.image.image.selected_option.value;
   const selectedServer = values.server.server.selected_option.value;
 
-  libvirt.createServer({ app: client, body, imageName: selectedImage, region: selectedRegion, instanceType: selectedServer });
+  libvirt.createServer({ client, body, imageName: selectedImage, region: selectedRegion, instanceType: selectedServer });
 }

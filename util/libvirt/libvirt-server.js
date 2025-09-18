@@ -8,7 +8,7 @@ import { uniqueNamesGenerator, colors, animals } from 'unique-names-generator';
 const log = logger();
 
 export default {
-    createServer: async({ app, body, imageName, region, instanceType }) => {
+    createServer: async({ client, body, imageName, region, instanceType }) => {
         //auto generate the name
         const serverName = uniqueNamesGenerator({ 
             dictionaries: [ colors, animals ],
@@ -18,15 +18,14 @@ export default {
         // Call the users.info method using the WebClient
         let info;
         try {
-            info = await app.client.users.info({
+            info = await client.users.info({
             user: body.user.id
             });
         } catch (error) {
             log.error('There was an error calling the user.info method in slack', error);
 
-            app.client.chat.postEphemeral({
-            channel: `${body.channel.id}`,
-            user: `${body.user.id}`,
+            await client.chat.postMessage({
+            channel: body.user.id,
             text: `Failed to get user info from slack`
             });
 
@@ -36,9 +35,8 @@ export default {
         const userEmail = info.user.profile.email;
 
         //post a status message
-        app.client.chat.postEphemeral({
-            channel: `${body.channel.id}`,
-            user: `${body.user.id}`,
+        await client.chat.postMessage({
+            channel: body.user.id,
             text: `Creating the server with image: ${imageName} This will take about 5 minutes.`
         });
 
@@ -64,9 +62,8 @@ export default {
         } catch (error) {
             log.error('There was an error creating the server', axiosError(error));
 
-            app.client.chat.postEphemeral({
-            channel: `${body.channel.id}`,
-            user: `${body.user.id}`,
+            await client.chat.postMessage({
+            channel: body.user.id,
             text: `Failed to create a server.`
             });
 
@@ -74,9 +71,8 @@ export default {
         }
 
         //return info for connection
-        app.client.chat.postEphemeral({
-            channel: `${body.channel.id}`,
-            user: `${body.user.id}`,
+        await client.chat.postMessage({
+            channel: body.user.id,
             text: `Server: ${serverName}\nStatus: Created\nRegion: ${region}`
         });
     },
