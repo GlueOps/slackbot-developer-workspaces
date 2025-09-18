@@ -128,7 +128,7 @@ export default {
       await app.client.chat.postEphemeral({
         channel: event.channel_id,
         user: event.user_id,
-        text: `Access your existing VMs with: <${process.env.GUACAMOLE_CONNECTION_URL}|Guacamole>\n\nAvailable subcommands:\n• create - Create a new VM\n• list - List existing VMs`,
+        text: `Access your existing VMs with: <${process.env.GUACAMOLE_CONNECTION_URL}|Guacamole>\n\nAvailable subcommands:\n• /vm create - Create a new VM\n• /vm list - List existing VMs`,
       });
     }
   }
