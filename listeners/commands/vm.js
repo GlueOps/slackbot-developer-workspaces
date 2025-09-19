@@ -3,6 +3,9 @@ import vmModal from '../../user-interface/modals/vm.js';
 import buttonBuilder from '../../util/button-builder.js';
 import 'dotenv/config';
 import axios from 'axios';
+import logger from '../../util/logger.js';
+
+const log = logger();
 
 export default {
   description: 'Sets up vm options',
@@ -58,7 +61,7 @@ export default {
             axios.get(`${process.env.PROVISIONER_URL}/v1/get-images`)
           ]);
       } catch (error) {
-        console.error('Error fetching regions or images:', error);
+        log.error('Error fetching regions or images:', error);
         await app.client.chat.postEphemeral({
           channel: event.channel_id,
           user: event.user_id,
@@ -124,11 +127,89 @@ export default {
       }
       break;
     }
+    case 'start': {
+      const serverName = args[1];
+      if (!serverName) {
+        await app.client.chat.postEphemeral({
+          channel: event.channel_id,
+          user: event.user_id,
+          text: 'Please provide a server name to start. Usage: /vm start <server-name>'
+        });
+        return;
+      }
+
+      const servers = [...await libvirt.listServers({ app, body })];
+
+      const server = servers.find(s => s.serverName === serverName);
+      if (!server) {
+        await app.client.chat.postEphemeral({
+          channel: event.channel_id,
+          user: event.user_id,
+          text: `Server "${serverName}" not found. Please check the server name and try again.`
+        });
+        return;
+      }
+
+      libvirt.startServer({ app, body, serverName, region: server.region });
+      break;
+    }
+    case 'stop': {
+      const serverName = args[1];
+      if (!serverName) {
+        await app.client.chat.postEphemeral({
+          channel: event.channel_id,
+          user: event.user_id,
+          text: 'Please provide a server name to stop. Usage: /vm stop <server-name>'
+        });
+        return;
+      }
+
+      const servers = [...await libvirt.listServers({ app, body })];
+
+      const server = servers.find(s => s.serverName === serverName);
+      if (!server) {
+        await app.client.chat.postEphemeral({
+          channel: event.channel_id,
+          user: event.user_id,
+          text: `Server "${serverName}" not found. Please check the server name and try again.`
+        });
+        return;
+      }
+
+      libvirt.stopServer({ app, body, serverName, region: server.region });
+      break;
+    }
+    case 'delete': {
+      const serverName = args[1];
+      if (!serverName) {
+        await app.client.chat.postEphemeral({
+          channel: event.channel_id,
+          user: event.user_id,
+          text: 'Please provide a server name to delete. Usage: /vm delete <server-name>'
+        });
+        return;
+      }
+
+      const servers = [...await libvirt.listServers({ app, body })];
+
+      const server = servers.find(s => s.serverName === serverName);
+      if (!server) {
+        await app.client.chat.postEphemeral({
+          channel: event.channel_id,
+          user: event.user_id,
+          text: `Server "${serverName}" not found. Please check the server name and try again.`
+        });
+        return;
+      }
+
+      libvirt.deleteServer({ app, body, serverName, region: server.region });
+      break;
+    }
     default:
       await app.client.chat.postEphemeral({
         channel: event.channel_id,
         user: event.user_id,
-        text: `Access your existing VMs with: <${process.env.GUACAMOLE_CONNECTION_URL}|Guacamole>\n\nAvailable subcommands:\n• /vm create - Create a new VM\n• /vm list - List existing VMs`,
+        text: `Access your existing VMs with: <${process.env.GUACAMOLE_CONNECTION_URL}|Guacamole>\n\nAvailable subcommands:\n• /vm create - Create a new VM\n• /vm list - List existing VMs\n• /vm start <vm name> - Start a VM\n• /vm stop <vm name> - Stop a VM\n• /vm delete <vm name> - Delete a VM`,
       });
     }
   }

@@ -78,6 +78,8 @@ export default {
     },
 
     deleteServer: async ({ app, body, serverName, region }) => {
+        const channel_id = body.channel ? body.channel.id : body.channel_id;
+        const user_id = body.user ? body.user.id : body.user_id;
         try {
             await axios.delete(`${process.env.PROVISIONER_URL}/v1/delete`, {
                 data: { 
@@ -90,16 +92,16 @@ export default {
             });
   
             app.client.chat.postEphemeral({
-              channel: `${body.channel.id}`,
-              user: `${body.user.id}`,
+              channel: channel_id,
+              user: user_id,
               text: `Server: ${serverName} has been deleted.`
             });
         } catch (error) {
             log.error('Failed to delete the server', axiosError(error));
   
             app.client.chat.postEphemeral({
-              channel: `${body.channel.id}`,
-              user: `${body.user.id}`,
+              channel: channel_id,
+              user: user_id,
               text: `Failed to delete Server: ${serverName}.`
             });
         } 
@@ -154,6 +156,8 @@ export default {
     },
 
     startServer: async({ app, body, serverName, region }) => {
+        const channel_id = body.channel ? body.channel.id : body.channel_id;
+        const user_id = body.user ? body.user.id : body.user_id;
         try {
             await axios.post(`${process.env.PROVISIONER_URL}/v1/start`, {
                 "vm_name": serverName,
@@ -165,22 +169,24 @@ export default {
             });
   
             app.client.chat.postEphemeral({
-              channel: `${body.channel.id}`,
-              user: `${body.user.id}`,
+              channel: channel_id,
+              user: user_id,
               text: `Server: ${serverName} has been Started.`
             });
         } catch (error) {
             log.error('Failed to start the server', axiosError(error));
   
             app.client.chat.postEphemeral({
-              channel: `${body.channel.id}`,
-              user: `${body.user.id}`,
+              channel: channel_id,
+              user: user_id,
               text: `Failed to start Server: ${serverName}.`
             });
         } 
     },
 
     stopServer: async({ app, body, serverName, region }) => {
+        const channel_id = body.channel ? body.channel.id : body.channel_id;
+        const user_id = body.user ? body.user.id : body.user_id;
         try {
             await axios.post(`${process.env.PROVISIONER_URL}/v1/stop`, {
                 "vm_name": serverName,
@@ -192,16 +198,16 @@ export default {
             });
   
             app.client.chat.postEphemeral({
-              channel: `${body.channel.id}`,
-              user: `${body.user.id}`,
+              channel: channel_id,
+              user: user_id,
               text: `Server: ${serverName} has been Stopped.`
             });
         } catch (error) {
             log.error('Failed to stop the server', axiosError(error));
   
             app.client.chat.postEphemeral({
-              channel: `${body.channel.id}`,
-              user: `${body.user.id}`,
+              channel: channel_id,
+              user: user_id,
               text: `Failed to stop Server: ${serverName}.`
             });
         } 
