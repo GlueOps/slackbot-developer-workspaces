@@ -4,23 +4,10 @@ FROM node:22-alpine@sha256:d2166de198f26e17e5a442f537754dd616ab069c47cc57b889310
 WORKDIR /app
 
 # Copy all project files
-COPY bot/ bot/
-COPY command-handler/ command-handler/
-COPY server/ server/
+COPY . .
 
-# Install dependencies and link command-handler globally
-WORKDIR /app/command-handler
-RUN npm ci
-RUN npm link
-
-# Install dependencies for express server
-WORKDIR /app/server
-RUN npm ci
-
-# Go to bot directory, install dependencies, and link both command-handler and server
-WORKDIR /app/bot
-RUN npm ci
-RUN npm link command-handler
+WORKDIR /app
+RUN npm ci --only=production
 
 # Expose port 5000
 EXPOSE 5000
