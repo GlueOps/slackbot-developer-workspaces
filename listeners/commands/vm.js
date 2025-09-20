@@ -94,7 +94,7 @@ export default {
             // Build buttons and add them to blocks
             const buttonBlock = buttonBuilder({
                 buttonsArray,
-                headerText: `Server: ${server.serverName}\nRegion: ${server.region}\nStatus: ${server.status}`,
+                headerText: `Server: ${server.serverName}\nRegion: ${server.region}\nDescription: ${server.description}\nStatus: ${server.status}`,
                 fallbackText: "Device not supported to use VM command"
             });
 

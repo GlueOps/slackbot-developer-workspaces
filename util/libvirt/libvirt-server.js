@@ -8,7 +8,7 @@ import { uniqueNamesGenerator, colors, animals } from 'unique-names-generator';
 const log = logger();
 
 export default {
-    createServer: async({ client, body, imageName, region, instanceType }) => {
+    createServer: async({ client, body, imageName, region, instanceType, description }) => {
         //auto generate the name
         const serverName = uniqueNamesGenerator({ 
             dictionaries: [ colors, animals ],
@@ -47,6 +47,7 @@ export default {
                     "vm_name": serverName,
                     "tags": {
                         "owner": userEmail,
+                        "description": description || ''
                     },
                     "user_data": Buffer.from(configUserData(serverName)).toString('base64'),
                     "image": imageName,
@@ -142,11 +143,13 @@ export default {
     
         for (const server of data) {
             const owner = server.tags.owner;
+            const description = server.tags.description || 'No description provided';
             // Check if the Owner matches the search value
             if (owner === userEmail) {
             servers.push({
                 serverName: `${server.name}`,
                 region: `${server.region_name}`,
+                description: description,
                 status: `${server.state}`
             });
             }

@@ -40,6 +40,12 @@ export default function vmModal({ regions = [], images = [], servers = [] } = {}
                 )
               : [Bits.Option({ text: 'Select a region first', value: 'placeholder' })]
           )
+      ),
+
+      Blocks.Input({ label: 'VM Description', blockId: 'description', optional: true }).element(
+        Elements.TextInput({ actionId: 'description' })
+          .placeholder('A short description of the VM')
+          .maxLength(100)
       )
     )
     .build();
