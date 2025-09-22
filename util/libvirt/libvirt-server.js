@@ -217,5 +217,56 @@ export default {
               text: `Failed to stop Server: ${serverName}.`
             });
         } 
+    },
+
+    editServer: async({ client, body, serverName, region, description }) => {
+        const user_id = body.user ? body.user.id : body.user_id;
+
+        // Call the users.info method using the WebClient
+        let info;
+        try {
+            info = await client.users.info({
+            user: user_id
+            });
+        } catch (error) {
+            log.error('There was an error calling the user.info method in slack', error);
+
+            await client.chat.postMessage({
+            channel: user_id,
+            text: `Failed to get user info from slack`
+            });
+
+            return;
+        }
+    
+        const userEmail = info.user.profile.email;
+
+        try {
+            await axios.post(`${process.env.PROVISIONER_URL}/v1/edit-description`, {
+                "vm_name": serverName,
+                "region_name": region,
+                "description": {
+                    "owner": userEmail,
+                    "description": description || ''
+                },
+            }, {
+                headers: {
+                'Authorization': `${process.env.PROVISIONER_API_TOKEN}`
+                },
+                timeout: 1000 * 60 * 2
+            });
+  
+            client.chat.postMessage({
+              channel: user_id,
+              text: `Server: ${serverName} has been Edited.`
+            });
+        } catch (error) {
+            log.error('Failed to edit the server description', axiosError(error));
+  
+            client.chat.postMessage({
+              channel: user_id,
+              text: `Failed to edit Server: ${serverName}.`
+            });
+        } 
     }
 };

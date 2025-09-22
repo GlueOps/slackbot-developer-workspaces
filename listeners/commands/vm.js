@@ -1,9 +1,10 @@
 import libvirt from '../../util/libvirt/libvirt-server.js';
-import vmModal from '../../user-interface/modals/vm.js';
+import vmCreateModal from '../../user-interface/modals/vm-create.js';
 import buttonBuilder from '../../util/button-builder.js';
 import 'dotenv/config';
 import axios from 'axios';
 import logger from '../../util/logger.js';
+import vmEditModal from '../../user-interface/modals/vm-edit.js';
 
 const log = logger();
 
@@ -41,6 +42,16 @@ export default {
       });
 
       libvirt.deleteServer({ app, body, serverName, region });
+    } else if (actionId === 'button_edit_libvirt') {
+        const { serverName, region, description } = JSON.parse(body.actions[0].value);
+
+        await app.client.views.open({
+          trigger_id: body.trigger_id,
+          view: {
+            ...vmEditModal({ description: description || '' }),
+            private_metadata: JSON.stringify({ serverName, region })
+          }
+        });
     } else {
         response({
           text: `This button is registered with the vm command, but does not have an action associated with it.`
@@ -91,7 +102,7 @@ export default {
         
         await app.client.views.update({
           view_id: result.view.id,
-          view: vmModal({ regions, images, servers: [] })
+          view: vmCreateModal({ regions, images, servers: [] })
         });
       break;
     case 'list': {
@@ -105,7 +116,8 @@ export default {
             const buttonsArray = [
                 { text: "Start", actionId: `button_start_libvirt`, value: JSON.stringify({ serverName: server.serverName, region: server.region }) },
                 { text: "Stop", actionId: `button_stop_libvirt`, value: JSON.stringify({ serverName: server.serverName, region: server.region }) },
-                { text: "Delete", actionId: `button_delete_libvirt`, value: JSON.stringify({ serverName: server.serverName, region: server.region }) }
+                { text: "Delete", actionId: `button_delete_libvirt`, value: JSON.stringify({ serverName: server.serverName, region: server.region }) },
+                { text: "Edit Description", actionId: `button_edit_libvirt`, value: JSON.stringify({ serverName: server.serverName, region: server.region, description: server.description }) }
             ];
 
             // Build buttons and add them to blocks

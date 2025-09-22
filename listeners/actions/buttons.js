@@ -31,6 +31,10 @@ const registeredButtons = {
     "^button_delete_": {
         command: 'vm',
         isRegex: true,
+    },
+    "^button_edit_": {
+        command: 'vm',
+        isRegex: true,
     }
 };
 

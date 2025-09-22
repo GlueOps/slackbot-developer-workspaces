@@ -1,5 +1,5 @@
 import axios from 'axios';
-import vmModal from '../../user-interface/modals/vm.js';
+import vmModal from '../../user-interface/modals/vm-create.js';
 
 export default async function vmRegionCallback({ ack, body, client }) {
   await ack();

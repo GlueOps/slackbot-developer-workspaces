@@ -1,7 +1,7 @@
 import { Modal, Blocks, Elements, Bits } from 'slack-block-builder';
 
-export default function vmModal({ regions = [], images = [], servers = [] } = {}) {
-  return Modal({ title: 'Create VM', submit: 'Submit', callbackId: 'vm-modal' })
+export default function vmCreateModal({ regions = [], images = [], servers = [] } = {}) {
+  return Modal({ title: 'Create VM', submit: 'Submit', callbackId: 'vm-create-modal' })
     .blocks(
 
       Blocks.Input({ label: 'Region', blockId: 'region' })

@@ -1,6 +1,6 @@
 import libvirt from '../../util/libvirt/libvirt-server.js';
 
-export default async function vmModalCallback({ ack, view, body, client }) {
+export default async function vmCreateModalCallback({ ack, view, body, client }) {
   await ack();
 
   const values = view.state.values;
