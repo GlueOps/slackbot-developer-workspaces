@@ -89,7 +89,8 @@ export default {
                 },
                 headers: {
                     'Authorization': `${process.env.PROVISIONER_API_TOKEN}`
-                }
+                },
+                timeout: 1000 * 60 * 2
             });
   
             app.client.chat.postEphemeral({
@@ -168,7 +169,8 @@ export default {
             }, {
                 headers: {
                 'Authorization': `${process.env.PROVISIONER_API_TOKEN}`
-                }
+                },
+                timeout: 1000 * 60 * 2
             });
   
             app.client.chat.postEphemeral({
@@ -197,7 +199,8 @@ export default {
             }, {
                 headers: {
                 'Authorization': `${process.env.PROVISIONER_API_TOKEN}`
-                }
+                },
+                timeout: 1000 * 60 * 2
             });
   
             app.client.chat.postEphemeral({
