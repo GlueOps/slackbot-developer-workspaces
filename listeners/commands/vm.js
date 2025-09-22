@@ -11,7 +11,7 @@ const log = logger();
 export default {
   description: 'Sets up vm options',
 
-  button: async ({ app, actionId, body, response }) => {  
+  button: async ({ app, actionId, body }) => {  
     if (actionId === 'button_start_libvirt') {
       const { serverName, region } = JSON.parse(body.actions[0].value);
           
@@ -50,7 +50,9 @@ export default {
           view: vmEditModal({ description: description || '', metaData: JSON.stringify({ serverName, region }) })
         });
     } else {
-        response({
+        await app.client.chat.postEphemeral({
+          channel: body.channel.id,
+          user: body.user.id,
           text: `This button is registered with the vm command, but does not have an action associated with it.`
         });
     }
