@@ -12,23 +12,40 @@ export default {
 
   button: async ({ app, actionId, body, response }) => {  
     if (actionId === 'button_start_libvirt') {
-        const { serverName, region } = JSON.parse(body.actions[0].value);
+      const { serverName, region } = JSON.parse(body.actions[0].value);
           
-        libvirt.startServer({ app, body, serverName, region });
-      } else if (actionId === 'button_stop_libvirt') {
+      await app.client.chat.postEphemeral({
+      channel: body.channel.id,
+      user: body.user.id,
+      text: `Starting Server: ${serverName}`
+      });
+
+      libvirt.startServer({ app, body, serverName, region });
+    } else if (actionId === 'button_stop_libvirt') {
         const { serverName, region } = JSON.parse(body.actions[0].value);
+
+        await app.client.chat.postEphemeral({
+        channel: body.channel.id,
+        user: body.user.id,
+        text: `Stopping Server: ${serverName}`
+        });
 
         libvirt.stopServer({ app, body, serverName, region });
-      } else if (actionId === 'button_delete_libvirt') {
-        const { serverName, region } = JSON.parse(body.actions[0].value);
+    } else if (actionId === 'button_delete_libvirt') {
+      const { serverName, region } = JSON.parse(body.actions[0].value);
 
-        //delete the server
-        libvirt.deleteServer({ app, body, serverName, region });
-      } else {
+      await app.client.chat.postEphemeral({
+      channel: body.channel.id,
+      user: body.user.id,
+      text: `Deleting Server: ${serverName}`
+      });
+
+      libvirt.deleteServer({ app, body, serverName, region });
+    } else {
         response({
           text: `This button is registered with the vm command, but does not have an action associated with it.`
         });
-      }
+    }
   },
   
   run: async ({ event, app, body }) => {
@@ -138,6 +155,12 @@ export default {
         return;
       }
 
+      await app.client.chat.postEphemeral({
+        channel: event.channel_id,
+        user: event.user_id,
+        text: `Starting Server: ${serverName}`
+      });
+
       const servers = [...await libvirt.listServers({ app, body })];
 
       const server = servers.find(s => s.serverName === serverName);
@@ -164,6 +187,12 @@ export default {
         return;
       }
 
+      await app.client.chat.postEphemeral({
+        channel: event.channel_id,
+        user: event.user_id,
+        text: `Stopping Server: ${serverName}`
+      });
+      
       const servers = [...await libvirt.listServers({ app, body })];
 
       const server = servers.find(s => s.serverName === serverName);
@@ -189,6 +218,12 @@ export default {
         });
         return;
       }
+
+      await app.client.chat.postEphemeral({
+        channel: event.channel_id,
+        user: event.user_id,
+        text: `Deleting Server: ${serverName}`
+      });
 
       const servers = [...await libvirt.listServers({ app, body })];
 
