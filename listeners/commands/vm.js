@@ -47,10 +47,7 @@ export default {
 
         await app.client.views.open({
           trigger_id: body.trigger_id,
-          view: {
-            ...vmEditModal({ description: description || '' }),
-            private_metadata: JSON.stringify({ serverName, region })
-          }
+          view: vmEditModal({ description: description || '', metaData: JSON.stringify({ serverName, region }) })
         });
     } else {
         response({
@@ -252,11 +249,64 @@ export default {
       libvirt.deleteServer({ app, body, serverName, region: server.region });
       break;
     }
+    case 'edit': {
+      const serverName = args[1];
+      if (!serverName) {
+        await app.client.chat.postEphemeral({
+          channel: event.channel_id,
+          user: event.user_id,
+          text: 'Please provide a server name to edit. Usage: /vm edit <server-name>'
+        });
+        return;
+      }
+
+      const result = await app.client.views.open({
+        trigger_id: body.trigger_id,
+        view: {
+          type: 'modal',
+          callback_id: 'vm-modal-loading',
+          title: { type: 'plain_text', text: 'Loading...' },
+          blocks: [
+            {
+              type: 'section',
+              text: { type: 'plain_text', text: 'Fetching data...' }
+            }
+          ]
+        }
+      });
+
+      const servers = [...await libvirt.listServers({ app, body })];
+      const server = servers.find(s => s.serverName === serverName);
+      if (!server) {
+        await app.client.views.update({
+        view_id: result.view.id,
+        view: {
+          type: 'modal',
+          callback_id: 'vm-modal-error',
+          title: { type: 'plain_text', text: 'Error' },
+          blocks: [
+            {
+              type: 'section',
+              text: { type: 'plain_text', text: `Server: ${serverName} not found. Please check the server name and try again.` }
+            }
+          ]
+        }
+        });
+        return;
+      }
+
+      await app.client.views.update({
+        view_id: result.view.id,
+        view: vmEditModal({ description: server.description || '', metaData: JSON.stringify({ serverName, region: server.region }) })
+      });
+
+      break;
+    }
     default:
       await app.client.chat.postEphemeral({
         channel: event.channel_id,
         user: event.user_id,
-        text: `Access your existing VMs with: <${process.env.GUACAMOLE_CONNECTION_URL}|Guacamole>\n\nAvailable subcommands:\n• /vm create - Create a new VM\n• /vm list - List existing VMs\n• /vm start <vm name> - Start a VM\n• /vm stop <vm name> - Stop a VM\n• /vm delete <vm name> - Delete a VM`,
+        text: `Access your existing VMs with: <${process.env.GUACAMOLE_CONNECTION_URL}|Guacamole>\n\nAvailable subcommands:\n• /vm create - Create a new VM\n• /vm list - List existing VMs\n• /vm start <vm name> - Start a VM\n• /vm stop <vm name> - Stop a VM\n• /vm delete <vm name> - Delete a VM\n• /vm edit <vm name> - Edit a VM Description`,
       });
     }
   }
