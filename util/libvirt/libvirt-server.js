@@ -82,6 +82,12 @@ export default {
         const channel_id = body.channel ? body.channel.id : body.channel_id;
         const user_id = body.user ? body.user.id : body.user_id;
         try {
+            await app.client.chat.postEphemeral({
+              channel: channel_id,
+              user: user_id,
+              text: `Deleting Server: ${serverName}`
+            });
+
             await axios.delete(`${process.env.PROVISIONER_URL}/v1/delete`, {
                 data: { 
                     "vm_name": serverName,
@@ -163,6 +169,12 @@ export default {
         const channel_id = body.channel ? body.channel.id : body.channel_id;
         const user_id = body.user ? body.user.id : body.user_id;
         try {
+            await app.client.chat.postEphemeral({
+              channel: channel_id,
+              user: user_id,
+              text: `Starting Server: ${serverName}`
+            });
+
             await axios.post(`${process.env.PROVISIONER_URL}/v1/start`, {
                 "vm_name": serverName,
                 "region_name": region
@@ -193,6 +205,12 @@ export default {
         const channel_id = body.channel ? body.channel.id : body.channel_id;
         const user_id = body.user ? body.user.id : body.user_id;
         try {
+            await app.client.chat.postEphemeral({
+              channel: channel_id,
+              user: user_id,
+              text: `Stopping Server: ${serverName}`
+            });
+
             await axios.post(`${process.env.PROVISIONER_URL}/v1/stop`, {
                 "vm_name": serverName,
                 "region_name": region
