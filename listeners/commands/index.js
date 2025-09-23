@@ -27,8 +27,15 @@ export default async function register(app) {
             continue;
         }
 
+        let fullCommand;
+        if (process.env.APP_ENVIRONMENT === 'prod') {
+            fullCommand = `/${commandName}`;
+        } else {
+            fullCommand = `/test-${commandName}`;
+        }
+        
         //register the command
-        app.command(`/${commandName}`, async ({ command, ack, body }) => {
+        app.command(fullCommand, async ({ command, ack, body }) => {
             await ack();
             await commandObject.run({ event: command, app, body });
         });
