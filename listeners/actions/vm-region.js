@@ -23,10 +23,11 @@ export default async function vmRegionCallback({ ack, body, client }) {
   const images = imagesRes.data.images || [];
   const regionObj = regions.find(r => r.region_name === selectedRegion);
   const servers = regionObj ? regionObj.available_instance_types : [];
+  const metaData = body.view.private_metadata;
 
   // Update the modal in place
   await client.views.update({
     view_id: body.view.id,
-    view: vmModal({ regions, images, servers })
+    view: vmModal({ regions, images, servers, metaData })
   });
 }

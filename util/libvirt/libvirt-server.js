@@ -8,7 +8,7 @@ import { uniqueNamesGenerator, colors, animals } from 'unique-names-generator';
 const log = logger();
 
 export default {
-    createServer: async({ client, body, imageName, region, instanceType, description }) => {
+    createServer: async({ client, body, imageName, region, instanceType, description, channel_id }) => {
         //auto generate the name
         const serverName = uniqueNamesGenerator({ 
             dictionaries: [ colors, animals ],
@@ -24,8 +24,9 @@ export default {
         } catch (error) {
             log.error('There was an error calling the user.info method in slack', error);
 
-            await client.chat.postMessage({
-            channel: body.user.id,
+            await client.chat.postEphemeral({
+            channel: channel_id,
+            user: body.user.id,
             text: `Failed to get user info from slack`
             });
 
@@ -35,9 +36,10 @@ export default {
         const userEmail = info.user.profile.email;
 
         //post a status message
-        await client.chat.postMessage({
-            channel: body.user.id,
-            text: `Creating the server with image: ${imageName} This will take about 5 minutes.`
+        await client.chat.postEphemeral({
+            channel: channel_id,
+            user: body.user.id,
+            text: `Creating the server: ${serverName} with image: ${imageName}`
         });
 
         let serverRes;
@@ -63,8 +65,9 @@ export default {
         } catch (error) {
             log.error('There was an error creating the server', axiosError(error));
 
-            await client.chat.postMessage({
-            channel: body.user.id,
+            await client.chat.postEphemeral({
+            channel: channel_id,
+            user: body.user.id,
             text: `Failed to create a server.`
             });
 
@@ -72,8 +75,9 @@ export default {
         }
 
         //return info for connection
-        await client.chat.postMessage({
-            channel: body.user.id,
+        await client.chat.postEphemeral({
+            channel: channel_id,
+            user: body.user.id,
             text: `Server: ${serverName}\nStatus: Created\nRegion: ${region}`
         });
     },
@@ -218,7 +222,7 @@ export default {
         } 
     },
 
-    editServer: async({ client, body, serverName, region, tags }) => {
+    editServer: async({ client, body, serverName, region, channel_id, tags }) => {
         const user_id = body.user ? body.user.id : body.user_id;
 
         try {
@@ -235,15 +239,17 @@ export default {
                 timeout: 1000 * 60 * 2
             });
   
-            client.chat.postMessage({
-              channel: user_id,
+            client.chat.postEphemeral({
+              channel: channel_id,
+              user: user_id,
               text: `Server: ${serverName} has been Edited.`
             });
         } catch (error) {
             log.error('Failed to edit the server description', axiosError(error));
   
-            client.chat.postMessage({
-              channel: user_id,
+            client.chat.postEphemeral({
+              channel: channel_id,
+              user: user_id,
               text: `Failed to edit Server: ${serverName}.`
             });
         } 

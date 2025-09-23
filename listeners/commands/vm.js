@@ -47,7 +47,7 @@ export default {
 
         await app.client.views.open({
           trigger_id: body.trigger_id,
-          view: vmEditModal({ description: tags.description || '', metaData: JSON.stringify({ serverName, region, tags }) })
+          view: vmEditModal({ description: tags.description || '', metaData: JSON.stringify({ serverName, region, channel_id: body.channel.id, tags }) })
         });
     } else {
         await app.client.chat.postEphemeral({
@@ -101,7 +101,7 @@ export default {
         
         await app.client.views.update({
           view_id: result.view.id,
-          view: vmCreateModal({ regions, images, servers: [] })
+          view: vmCreateModal({ regions, images, servers: [], metaData: JSON.stringify({ channel_id: event.channel_id }) })
         });
       break;
     case 'list': {
@@ -300,7 +300,7 @@ export default {
 
       await app.client.views.update({
         view_id: result.view.id,
-        view: vmEditModal({ description: server.tags.description || '', metaData: JSON.stringify({ serverName, region: server.region, tags: server.tags }) })
+        view: vmEditModal({ description: server.tags.description || '', metaData: JSON.stringify({ serverName, region: server.region, channel_id: event.channel_id, tags: server.tags }) })
       });
 
       break;
