@@ -1,0 +1,51 @@
+{
+    "display_information": {
+        "name": "Dev Bot"
+    },
+    "features": {
+        "bot_user": {
+            "display_name": "Dev Bot",
+            "always_online": true
+        },
+        "slash_commands": [
+            {
+                "command": "/vm",
+                "url": "<your server's url>/slack/events",
+                "description": "Create a codespace",
+                "should_escape": false
+            }
+        ]
+    },
+    "oauth_config": {
+        "scopes": {
+            "bot": [
+                "channels:history",
+                "chat:write",
+                "groups:history",
+                "im:history",
+                "mpim:history",
+                "users:read.email",
+                "users:read",
+                "commands"
+            ]
+        }
+    },
+    "settings": {
+        "event_subscriptions": {
+            "request_url": "https://slackbot.glueopshosted.com/slack/events",
+            "bot_events": [
+                "message.channels",
+                "message.groups",
+                "message.im",
+                "message.mpim"
+            ]
+        },
+        "interactivity": {
+            "is_enabled": true,
+            "request_url": "<your server's url>/slack/events"
+        },
+        "org_deploy_enabled": false,
+        "socket_mode_enabled": false,
+        "token_rotation_enabled": false
+    }
+}
