@@ -5,7 +5,8 @@ export default async function vmEditModalCallback({ ack, view, body, client }) {
 
   const values = view.state.values;
   const description = values.description.description.value;
-  const metaData = JSON.parse(view.private_metadata)
+  const metaData = JSON.parse(view.private_metadata);
+  metaData.tags.description = description;
 
-  libvirt.editServer({ client, body, serverName: metaData.serverName, region: metaData.region, description });
+  libvirt.editServer({ client, body, ...metaData });
 }

@@ -144,13 +144,12 @@ export default {
     
         for (const server of data) {
             const owner = server.tags.owner;
-            const description = server.tags.description || 'No description provided';
             // Check if the Owner matches the search value
             if (owner === userEmail) {
             servers.push({
                 serverName: `${server.name}`,
                 region: `${server.region_name}`,
-                description: description,
+                tags: server.tags,
                 status: `${server.state}`
             });
             }
@@ -219,35 +218,15 @@ export default {
         } 
     },
 
-    editServer: async({ client, body, serverName, region, description }) => {
+    editServer: async({ client, body, serverName, region, tags }) => {
         const user_id = body.user ? body.user.id : body.user_id;
 
-        // Call the users.info method using the WebClient
-        let info;
         try {
-            info = await client.users.info({
-            user: user_id
-            });
-        } catch (error) {
-            log.error('There was an error calling the user.info method in slack', error);
-
-            await client.chat.postMessage({
-            channel: user_id,
-            text: `Failed to get user info from slack`
-            });
-
-            return;
-        }
-    
-        const userEmail = info.user.profile.email;
-
-        try {
-            await axios.post(`${process.env.PROVISIONER_URL}/v1/edit-description`, {
+            await axios.post(`${process.env.PROVISIONER_URL}/v1/edit-tags`, {
                 "vm_name": serverName,
                 "region_name": region,
-                "description": {
-                    "owner": userEmail,
-                    "description": description || ''
+                "tags": {
+                    ...tags
                 },
             }, {
                 headers: {

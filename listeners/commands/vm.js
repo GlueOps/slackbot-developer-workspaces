@@ -43,11 +43,11 @@ export default {
 
       libvirt.deleteServer({ app, body, serverName, region });
     } else if (actionId === 'button_edit_libvirt') {
-        const { serverName, region, description } = JSON.parse(body.actions[0].value);
+        const { serverName, region, tags } = JSON.parse(body.actions[0].value);
 
         await app.client.views.open({
           trigger_id: body.trigger_id,
-          view: vmEditModal({ description: description || '', metaData: JSON.stringify({ serverName, region }) })
+          view: vmEditModal({ description: tags.description || '', metaData: JSON.stringify({ serverName, region, tags }) })
         });
     } else {
         await app.client.chat.postEphemeral({
@@ -112,22 +112,23 @@ export default {
       // Check if there are any servers
       if (servers.length) {
         for (const server of servers) {
-            const buttonsArray = [
-                { text: "Start", actionId: `button_start_libvirt`, value: JSON.stringify({ serverName: server.serverName, region: server.region }) },
-                { text: "Stop", actionId: `button_stop_libvirt`, value: JSON.stringify({ serverName: server.serverName, region: server.region }) },
-                { text: "Delete", actionId: `button_delete_libvirt`, value: JSON.stringify({ serverName: server.serverName, region: server.region }) },
-                { text: "Edit Description", actionId: `button_edit_libvirt`, value: JSON.stringify({ serverName: server.serverName, region: server.region, description: server.description }) }
-            ];
+          const description = server.tags.description || 'No description provided';
+          const buttonsArray = [
+              { text: "Start", actionId: `button_start_libvirt`, value: JSON.stringify({ serverName: server.serverName, region: server.region }) },
+              { text: "Stop", actionId: `button_stop_libvirt`, value: JSON.stringify({ serverName: server.serverName, region: server.region }) },
+              { text: "Delete", actionId: `button_delete_libvirt`, value: JSON.stringify({ serverName: server.serverName, region: server.region }) },
+              { text: "Edit Description", actionId: `button_edit_libvirt`, value: JSON.stringify({ serverName: server.serverName, region: server.region, tags: server.tags }) }
+          ];
 
-            // Build buttons and add them to blocks
-            const buttonBlock = buttonBuilder({
-                buttonsArray,
-                headerText: `Server: ${server.serverName}\nRegion: ${server.region}\nDescription: ${server.description}\nStatus: ${server.status}`,
-                fallbackText: "Device not supported to use VM command"
-            });
+          // Build buttons and add them to blocks
+          const buttonBlock = buttonBuilder({
+              buttonsArray,
+              headerText: `Server: ${server.serverName}\nRegion: ${server.region}\nDescription: ${description}\nStatus: ${server.status}`,
+              fallbackText: "Device not supported to use VM command"
+          });
 
-            // Push the blocks into the main blocks array
-            blocks.push(...buttonBlock.blocks);
+          // Push the blocks into the main blocks array
+          blocks.push(...buttonBlock.blocks);
         }
 
         // Add header message at the end
@@ -299,7 +300,7 @@ export default {
 
       await app.client.views.update({
         view_id: result.view.id,
-        view: vmEditModal({ description: server.description || '', metaData: JSON.stringify({ serverName, region: server.region }) })
+        view: vmEditModal({ description: server.tags.description || '', metaData: JSON.stringify({ serverName, region: server.region, tags: server.tags }) })
       });
 
       break;
