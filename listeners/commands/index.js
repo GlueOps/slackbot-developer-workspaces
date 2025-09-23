@@ -27,14 +27,13 @@ export default async function register(app) {
             continue;
         }
 
-        const fullCommand = process.env.APP_ENVIRONMENT === 'prod'
-            ? `/${commandName}`
-            : `/test-${commandName}`;
+        const commandPrefix = process.env.APP_ENVIRONMENT === 'prod' ? '' : 'test-';
+        const fullCommand = `/${commandPrefix}${commandName}`;
         
         //register the command
         app.command(fullCommand, async ({ command, ack, body }) => {
             await ack();
-            await commandObject.run({ event: command, app, body });
+            await commandObject.run({ event: command, app, body, commandPrefix });
         });
     }
 }

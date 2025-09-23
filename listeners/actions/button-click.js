@@ -6,6 +6,8 @@ import path from 'path';
 import { fileURLToPath, pathToFileURL } from 'url';
 import registeredButtons from './buttons.js';
 
+const commandPrefix = process.env.APP_ENVIRONMENT === 'prod' ? '' : 'test-';
+
 export default function button(app) {
 
     // Register a single action handler for all actions
@@ -55,6 +57,6 @@ export default function button(app) {
     }
 
     // run the command's button handler
-    commandObject.button({ app, body, actionId });
+    commandObject.button({ app, body, actionId, commandPrefix });
     });
 }
