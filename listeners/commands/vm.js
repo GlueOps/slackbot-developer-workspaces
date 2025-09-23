@@ -7,6 +7,7 @@ import logger from '../../util/logger.js';
 import vmEditModal from '../../user-interface/modals/vm-edit.js';
 
 const log = logger();
+const prefix = process.env.APP_ENVIRONMENT === 'prod' ? '' : 'test-';
 
 export default {
   description: 'Sets up vm options',
@@ -53,7 +54,7 @@ export default {
         await app.client.chat.postEphemeral({
           channel: body.channel.id,
           user: body.user.id,
-          text: `This button is registered with the vm command, but does not have an action associated with it.`
+          text: `This button is registered with the /${prefix}vm command, but does not have an action associated with it.`
         });
     }
   },
@@ -162,7 +163,7 @@ export default {
         await app.client.chat.postEphemeral({
           channel: event.channel_id,
           user: event.user_id,
-          text: 'Please provide a server name to start. Usage: /vm start <server-name>'
+          text: `Please provide a server name to start. Usage: /${prefix}vm start <server-name>`
         });
         return;
       }
@@ -194,7 +195,7 @@ export default {
         await app.client.chat.postEphemeral({
           channel: event.channel_id,
           user: event.user_id,
-          text: 'Please provide a server name to stop. Usage: /vm stop <server-name>'
+          text: `Please provide a server name to stop. Usage: /${prefix}vm stop <server-name>`
         });
         return;
       }
@@ -226,7 +227,7 @@ export default {
         await app.client.chat.postEphemeral({
           channel: event.channel_id,
           user: event.user_id,
-          text: 'Please provide a server name to delete. Usage: /vm delete <server-name>'
+          text: `Please provide a server name to delete. Usage: /${prefix}vm delete <server-name>`
         });
         return;
       }
@@ -258,7 +259,7 @@ export default {
         await app.client.chat.postEphemeral({
           channel: event.channel_id,
           user: event.user_id,
-          text: 'Please provide a server name to edit. Usage: /vm edit <server-name>'
+          text: `Please provide a server name to edit. Usage: /${prefix}vm edit <server-name>`
         });
         return;
       }
@@ -309,7 +310,7 @@ export default {
       await app.client.chat.postEphemeral({
         channel: event.channel_id,
         user: event.user_id,
-        text: `Access your existing VMs with: <${process.env.GUACAMOLE_CONNECTION_URL}|Guacamole>\n\nAvailable subcommands:\n• /vm create - Create a new VM\n• /vm list - List existing VMs\n• /vm start <vm name> - Start a VM\n• /vm stop <vm name> - Stop a VM\n• /vm delete <vm name> - Delete a VM\n• /vm edit <vm name> - Edit a VM Description`,
+        text: `Access your existing VMs with: <${process.env.GUACAMOLE_CONNECTION_URL}|Guacamole>\n\nAvailable subcommands:\n• /${prefix}vm create - Create a new VM\n• /${prefix}vm list - List existing VMs\n• /${prefix}vm start <vm name> - Start a VM\n• /${prefix}vm stop <vm name> - Stop a VM\n• /${prefix}vm delete <vm name> - Delete a VM\n• /${prefix}vm edit <vm name> - Edit a VM Description`,
       });
     }
   }
