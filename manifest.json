@@ -1,10 +1,10 @@
 {
     "display_information": {
-        "name": "Dev Bot"
+        "name": "GlueOps"
     },
     "features": {
         "bot_user": {
-            "display_name": "Dev Bot",
+            "display_name": "GlueOps",
             "always_online": true
         },
         "slash_commands": [
@@ -32,7 +32,7 @@
     },
     "settings": {
         "event_subscriptions": {
-            "request_url": "https://slackbot.glueopshosted.com/slack/events",
+            "request_url": "<your server's url>/slack/events",
             "bot_events": [
                 "message.channels",
                 "message.groups",
