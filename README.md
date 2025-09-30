@@ -1,8 +1,8 @@
 # slackbot-developer-workspaces
 
 This is the source code for a Slack bot. It is coded in Javascript using bolt.
-The bot is set up to run in socket mode. The server is a heart-beat monitor 
-and runs on port 5000 while the bolt server listens on port 3000 by default.
+The bot is set up to run in HTTP mode. The server is a heart-beat monitor 
+and runs on port 5000 by default.
 
 # Installation
 ### Dependencies
@@ -14,8 +14,8 @@ and runs on port 5000 while the bolt server listens on port 3000 by default.
 ### Steps
 1. pull down the latest image from ghcr
 
-2. You can then run the bot `docker run --env-file <path-to-.env-file -d -p 5000:5000 -p 3000:3000 --name dev-bot <ghcr image>`
-**If you change the bolt port or the server port, make sure to update that in the docker command**
+2. You can then run the bot `docker run --env-file <path-to-.env-file -d -p 5000:5000 --name dev-bot <ghcr image>`
+**If you change the server port, make sure to update that in the docker command**
 
 3. refer to the example.env and steps to generate all the tokens required to set up the app below.
 
@@ -29,15 +29,15 @@ If you would like to change the source code, or compile the slack Bot yourself:
 3. Compile the bot code
 `docker build -t <DOCKER_IMAGE_NAME> .`
 
-4. You can then run the bot `docker run --env-file <path-to-.env-file -d -p 5000:5000 -p 3000:3000 --name dev-bot <ghcr image>`
-**If you change the bolt port or the server port, make sure to update that in the docker command**
+4. You can then run the bot `docker run --env-file <path-to-.env-file -d -p 5000:5000 --name dev-bot <ghcr image>`
+**If you change the server port, make sure to update that in the docker command**
 
 5. refer to the example.env and steps to generate all the tokens required to set up the app below.
 
 ## Set up Slack App
 1. You will need to create a [slack app](https://api.slack.com/apps)
 
-2. In the app creation progress, create new app from a manifest and copy the manifest.json
+2. In the app creation progress, create new app from a manifest and copy the [manifest.json](manifest.json) file in this repo.
 
 3. Once you have created your Slack App, in the App credentials under Basic information,
 you will find your signing secret.
@@ -71,99 +71,7 @@ The goals of this ACL policy are to allow the provisioner API to access "provisi
 
 When testing new policies/ACLs it's best to just create a separate tailnet/tailscale account for testing.
 
-```json
-{
-    "acls": [
-        {
-            "action": "accept",
-            "dst": [
-                "tag:app-prod-provisioner-api:*",
-                "tag:app-prod-provisioner-nodes:*"
-            ],
-            "src": [
-                "group:app-prod-provisioner-developers"
-            ]
-        },
-        {
-            "action": "accept",
-            "dst": [
-                "tag:app-prod-provisioner-nodes:*"
-            ],
-            "src": [
-                "tag:app-prod-provisioner-api"
-            ]
-        },
-        {
-            "action": "accept",
-            "dst": [
-                "tag:tim-cook:*"
-            ],
-            "src": [
-                "tim.cook@glueops.dev"
-            ]
-        }
-    ],
-    "groups": {
-        "group:app-prod-provisioner-developers": [
-            "tim.cook@glueops.dev"
-        ]
-    },
-    "ssh": [
-        {
-            "action": "check",
-            "dst": [
-                "autogroup:self"
-            ],
-            "src": [
-                "autogroup:member"
-            ],
-            "users": [
-                "autogroup:nonroot",
-                "root"
-            ]
-        },
-        {
-            "action": "check",
-            "dst": [
-                "tag:tim-cook"
-            ],
-            "src": [
-                "autogroup:member",
-                "autogroup:admin"
-            ],
-            "users": [
-                "autogroup:nonroot",
-                "root"
-            ]
-        },
-        {
-            "action": "check",
-            "dst": [
-                "tag:app-prod-provisioner-api",
-                "tag:app-prod-provisioner-nodes"
-            ],
-            "src": [
-                "group:app-prod-provisioner-developers"
-            ],
-            "users": [
-                "autogroup:nonroot",
-                "root"
-            ]
-        }
-    ],
-    "tagOwners": {
-        "tag:tim-cook": [
-            "autogroup:admin"
-        ],
-        "tag:app-prod-provisioner-api": [
-            "group:app-prod-provisioner-developers"
-        ],
-        "tag:app-prod-provisioner-nodes": [
-            "group:app-prod-provisioner-developers"
-        ]
-    }
-}
-```
+You can find an example ACL file in this [repo](tailscale-acls.json).
 
 # Adding Bot commands
 To register a new command, create a file `myCommand.js` in listeners/commands
