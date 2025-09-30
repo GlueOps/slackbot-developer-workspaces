@@ -1,0 +1,91 @@
+{
+    "acls": [
+        {
+            "action": "accept",
+            "dst": [
+                "tag:app-prod-provisioner-api:*",
+                "tag:app-prod-provisioner-nodes:*"
+            ],
+            "src": [
+                "group:app-prod-provisioner-developers"
+            ]
+        },
+        {
+            "action": "accept",
+            "dst": [
+                "tag:app-prod-provisioner-nodes:*"
+            ],
+            "src": [
+                "tag:app-prod-provisioner-api"
+            ]
+        },
+        {
+            "action": "accept",
+            "dst": [
+                "tag:tim-cook:*"
+            ],
+            "src": [
+                "tim.cook@glueops.dev"
+            ]
+        }
+    ],
+    "groups": {
+        "group:app-prod-provisioner-developers": [
+            "tim.cook@glueops.dev"
+        ]
+    },
+    "ssh": [
+        {
+            "action": "check",
+            "dst": [
+                "autogroup:self"
+            ],
+            "src": [
+                "autogroup:member"
+            ],
+            "users": [
+                "autogroup:nonroot",
+                "root"
+            ]
+        },
+        {
+            "action": "check",
+            "dst": [
+                "tag:tim-cook"
+            ],
+            "src": [
+                "autogroup:member",
+                "autogroup:admin"
+            ],
+            "users": [
+                "autogroup:nonroot",
+                "root"
+            ]
+        },
+        {
+            "action": "check",
+            "dst": [
+                "tag:app-prod-provisioner-api",
+                "tag:app-prod-provisioner-nodes"
+            ],
+            "src": [
+                "group:app-prod-provisioner-developers"
+            ],
+            "users": [
+                "autogroup:nonroot",
+                "root"
+            ]
+        }
+    ],
+    "tagOwners": {
+        "tag:tim-cook": [
+            "autogroup:admin"
+        ],
+        "tag:app-prod-provisioner-api": [
+            "group:app-prod-provisioner-developers"
+        ],
+        "tag:app-prod-provisioner-nodes": [
+            "group:app-prod-provisioner-developers"
+        ]
+    }
+}
