@@ -51,9 +51,9 @@ export default function vmCreateModal({ regions = [], images = [], servers = [],
         Elements.Checkboxes({ actionId: 'singleClickExperience' })
           .options(
             Bits.Option({ 
-              text: 'Enable Single-Click Experience', 
+              text: 'Enable Single-Click Experience (BETA)', 
               value: 'single_click_enabled',
-              description: 'One-click access to your Cloud Development Environment'
+              description: 'One-click access to your Cloud Development Environment (BETA)'
             })
           )
       )
