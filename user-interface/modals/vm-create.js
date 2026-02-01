@@ -45,6 +45,17 @@ export default function vmCreateModal({ regions = [], images = [], servers = [],
         Elements.TextInput({ actionId: 'description' })
           .placeholder('A short description of the VM')
           .maxLength(100)
+      ),
+
+      Blocks.Input({ label: 'Launch Mode', blockId: 'launchMode', optional: true }).element(
+        Elements.Checkboxes({ actionId: 'singleClickExperience' })
+          .options(
+            Bits.Option({ 
+              text: 'Enable Single-Click Experience', 
+              value: 'single_click_enabled',
+              description: 'One-click access to your Cloud Development Environment'
+            })
+          )
       )
     )
     .build();

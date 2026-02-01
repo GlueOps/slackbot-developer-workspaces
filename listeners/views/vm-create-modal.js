@@ -8,7 +8,10 @@ export default async function vmCreateModalCallback({ ack, view, body, client })
   const selectedImage = values.image.image.selected_option.value;
   const selectedServer = values.server.server.selected_option.value;
   const description = values.description.description.value;
+  const singleClickExperience = values.launchMode?.singleClickExperience?.selected_options?.some(
+    opt => opt.value === 'single_click_enabled'
+  ) ?? false;
   const metaData = JSON.parse(view.private_metadata);
 
-  libvirt.createServer({ client, body, imageName: selectedImage, region: selectedRegion, instanceType: selectedServer, description, ...metaData });
+  libvirt.createServer({ client, body, imageName: selectedImage, region: selectedRegion, instanceType: selectedServer, description, singleClickExperience, ...metaData });
 }

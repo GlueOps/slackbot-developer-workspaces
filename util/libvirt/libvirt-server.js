@@ -4,16 +4,20 @@ import axios from 'axios';
 import configUserData from "../get-user-data.js";
 import axiosError from '../axios-error-handler.js';
 import { uniqueNamesGenerator, colors, animals } from 'unique-names-generator';
+import { generateCdeToken } from '../token-generator.js';
 
 const log = logger();
 
 export default {
-    createServer: async({ client, body, imageName, region, instanceType, description, channel_id }) => {
+    createServer: async({ client, body, imageName, region, instanceType, description, channel_id, singleClickExperience }) => {
         //auto generate the name
         const serverName = uniqueNamesGenerator({ 
             dictionaries: [ colors, animals ],
             separator: '-'
         });
+
+        // Generate CDE token if Single-Click Experience is enabled
+        const cdeToken = singleClickExperience ? generateCdeToken() : null;
 
         // Call the users.info method using the WebClient
         let info;
@@ -42,16 +46,20 @@ export default {
             text: `Creating the server: ${serverName} with image: ${imageName}`
         });
 
+        // Build tags object, including CDE token if enabled
+        const tags = {
+            "owner": userEmail,
+            "description": description || '',
+            ...(cdeToken && { "cde_token": cdeToken })
+        };
+
         let serverRes;
         try {
             serverRes = await axios.post(`${process.env.PROVISIONER_URL}/v1/create`, 
                 {
                     "vm_name": serverName,
-                    "tags": {
-                        "owner": userEmail,
-                        "description": description || ''
-                    },
-                    "user_data": Buffer.from(configUserData(serverName)).toString('base64'),
+                    "tags": tags,
+                    "user_data": Buffer.from(configUserData(serverName, cdeToken)).toString('base64'),
                     "image": imageName,
                     "region_name": region,
                     "instance_type": instanceType
@@ -75,10 +83,18 @@ export default {
         }
 
         //return info for connection
+        let responseText = `Server: ${serverName}\nStatus: Created\nRegion: ${region}`;
+        if (cdeToken) {
+            const cdeUrl = `https://cde-${serverName}.tunnels.glueopshosted.com?tkn=${cdeToken}`;
+            responseText += `\nAccess: <${cdeUrl}|Cloud Development Environment>`;
+        } else {
+            responseText += `\nAccess: <${process.env.GUACAMOLE_CONNECTION_URL}|Guacamole>`;
+        }
+
         await client.chat.postEphemeral({
             channel: channel_id,
             user: body.user.id,
-            text: `Server: ${serverName}\nStatus: Created\nRegion: ${region}`
+            text: responseText
         });
     },
 
