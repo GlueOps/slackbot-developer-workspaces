@@ -113,6 +113,7 @@ export default {
       if (servers.length) {
         for (const server of servers) {
           const description = server.tags.description || 'No description provided';
+          const cdeToken = server.tags.cde_token || null;
           const buttonsArray = [
               { text: "Start", actionId: `button_start_libvirt`, value: JSON.stringify({ serverName: server.serverName, region: server.region }) },
               { text: "Stop", actionId: `button_stop_libvirt`, value: JSON.stringify({ serverName: server.serverName, region: server.region }) },
@@ -120,10 +121,17 @@ export default {
               { text: "Edit Description", actionId: `button_edit_libvirt`, value: JSON.stringify({ serverName: server.serverName, region: server.region, tags: server.tags }) }
           ];
 
+          // Build header text with optional CDE URL
+          let headerText = `Server: ${server.serverName}\nRegion: ${server.region}\nDescription: ${description}\nStatus: ${server.status}`;
+          if (cdeToken) {
+              const cdeUrl = `https://cde-${server.serverName}.tunnels.glueopshosted.com?folder=/workspaces/glueops&tkn=${cdeToken}`;
+              headerText += `\nAccess: <${cdeUrl}|Cloud Development Environment>`;
+          }
+
           // Build buttons and add them to blocks
           const buttonBlock = buttonBuilder({
               buttonsArray,
-              headerText: `Server: ${server.serverName}\nRegion: ${server.region}\nDescription: ${description}\nStatus: ${server.status}`,
+              headerText,
               fallbackText: "Device not supported to use VM command"
           });
 
