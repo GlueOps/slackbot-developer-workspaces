@@ -2,7 +2,7 @@ import crypto from 'crypto';
 
 /**
  * Generates a 43-character random token with only alphanumeric characters
- * Uses 172 bits of entropy (22 bytes), encoded as hex and truncated
+ * Generates 22 random bytes (176 bits) and encodes as hex, retaining 172 bits after truncation
  * Character set: 0-9, a-f (hex)
  */
 export function generateCdeToken() {
