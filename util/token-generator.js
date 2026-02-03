@@ -1,10 +1,10 @@
 import crypto from 'crypto';
 
 /**
- * Generates a 43-character URL-safe random token
- * Uses 256 bits of entropy (32 bytes), encoded as base64url
- * Character set: A-Z, a-z, 0-9, -, _ (base64url)
+ * Generates a 43-character random token with only alphanumeric characters
+ * Uses 172 bits of entropy (22 bytes), encoded as hex and truncated
+ * Character set: 0-9, a-f (hex)
  */
 export function generateCdeToken() {
-    return crypto.randomBytes(32).toString('base64url');
+    return crypto.randomBytes(22).toString('hex').slice(0, 43);
 }
