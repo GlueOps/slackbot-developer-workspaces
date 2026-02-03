@@ -6,5 +6,5 @@ import crypto from 'crypto';
  * Character set: A-Z, a-z, 0-9, -, _ (base64url)
  */
 export function generateCdeToken() {
-    return crypto.randomBytes(32).toString('base64url');
+    return crypto.randomBytes(22).toString('hex').slice(0, 43);
 }
