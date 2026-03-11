@@ -8,6 +8,9 @@ import vmEditModal from '../../user-interface/modals/vm-edit.js';
 
 const log = logger();
 
+const MAX_VM_COUNT = 10;
+const MAX_VM_RAM_MB = 9216;
+
 export default {
   description: 'Sets up vm options',
 
@@ -64,6 +67,16 @@ export default {
 
     switch (subcommand) {
       case 'create':
+        const vmCount = parseInt(args[1], 10) || 1;
+        if (vmCount < 1 || vmCount > MAX_VM_COUNT || !Number.isInteger(vmCount)) {
+          await app.client.chat.postEphemeral({
+            channel: event.channel_id,
+            user: event.user_id,
+            text: `Invalid VM count. Please specify a number between 1 and ${MAX_VM_COUNT}. Usage: /${commandPrefix}vm create [count]`
+          });
+          return;
+        }
+
         const result = await app.client.views.open({
           trigger_id: body.trigger_id,
           view: {
@@ -98,10 +111,15 @@ export default {
       }
         const regions = regionsRes.data || [];
         const images = imagesRes.data.images || [];
+
+        // When creating multiple VMs, filter regions to those with small enough instance types
+        const filteredRegions = vmCount > 1
+          ? regions.filter(r => r.available_instance_types?.some(t => t.memory_mb <= MAX_VM_RAM_MB))
+          : regions;
         
         await app.client.views.update({
           view_id: result.view.id,
-          view: vmCreateModal({ regions, images, servers: [], metaData: JSON.stringify({ channel_id: event.channel_id }) })
+          view: vmCreateModal({ regions: filteredRegions, images, servers: [], metaData: JSON.stringify({ channel_id: event.channel_id, vmCount }), vmCount })
         });
       break;
     case 'list': {
@@ -317,7 +335,7 @@ export default {
       await app.client.chat.postEphemeral({
         channel: event.channel_id,
         user: event.user_id,
-        text: `Access your existing VMs with: <${process.env.GUACAMOLE_CONNECTION_URL}|Guacamole>\n\nAvailable subcommands:\n• /${commandPrefix}vm create - Create a new VM\n• /${commandPrefix}vm list - List existing VMs\n• /${commandPrefix}vm start <vm name> - Start a VM\n• /${commandPrefix}vm stop <vm name> - Stop a VM\n• /${commandPrefix}vm delete <vm name> - Delete a VM\n• /${commandPrefix}vm edit <vm name> - Edit a VM Description`,
+        text: `Access your existing VMs with: <${process.env.GUACAMOLE_CONNECTION_URL}|Guacamole>\n\nAvailable subcommands:\n• /${commandPrefix}vm create [count] - Create one or more VMs (default: 1, max: ${MAX_VM_COUNT})\n• /${commandPrefix}vm list - List existing VMs\n• /${commandPrefix}vm start <vm name> - Start a VM\n• /${commandPrefix}vm stop <vm name> - Stop a VM\n• /${commandPrefix}vm delete <vm name> - Delete a VM\n• /${commandPrefix}vm edit <vm name> - Edit a VM Description`,
       });
     }
   }

@@ -1,7 +1,21 @@
 import { Modal, Blocks, Elements, Bits } from 'slack-block-builder';
 
-export default function vmCreateModal({ regions = [], images = [], servers = [], metaData } = {}) {
-  return Modal({ title: 'Create VM', submit: 'Submit', callbackId: 'vm-create-modal', privateMetaData: metaData })
+export default function vmCreateModal({ regions = [], images = [], servers = [], metaData, vmCount = 1 } = {}) {
+  const title = vmCount > 1 ? `Create ${vmCount} VMs` : 'Create VM';
+
+  const descriptionBlocks = [];
+  for (let i = 1; i <= vmCount; i++) {
+    const label = vmCount > 1 ? `VM ${i} Description` : 'VM Description';
+    descriptionBlocks.push(
+      Blocks.Input({ label, blockId: `description_${i}`, optional: true }).element(
+        Elements.TextInput({ actionId: `description_${i}` })
+          .placeholder('A short description of the VM')
+          .maxLength(100)
+      )
+    );
+  }
+
+  return Modal({ title, submit: 'Submit', callbackId: 'vm-create-modal', privateMetaData: metaData })
     .blocks(
       Blocks.Input({ label: 'Region', blockId: 'region' })
       .dispatchAction(true)
@@ -41,11 +55,7 @@ export default function vmCreateModal({ regions = [], images = [], servers = [],
           )
       ),
 
-      Blocks.Input({ label: 'VM Description', blockId: 'description', optional: true }).element(
-        Elements.TextInput({ actionId: 'description' })
-          .placeholder('A short description of the VM')
-          .maxLength(100)
-      ),
+      ...descriptionBlocks,
 
       Blocks.Input({ label: 'Launch Mode', blockId: 'launchMode', optional: true }).element(
         Elements.Checkboxes({ actionId: 'singleClickExperience' })
