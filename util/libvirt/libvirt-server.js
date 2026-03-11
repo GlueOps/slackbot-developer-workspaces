@@ -51,6 +51,7 @@ export default {
         const tags = {
             "owner": userEmail,
             "description": description || '',
+            "created_at": new Date().toISOString(),
             ...(cdeToken && { "cde_token": cdeToken })
         };
 
