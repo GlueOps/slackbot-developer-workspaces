@@ -84,13 +84,17 @@ export default {
         }
 
         //return info for connection
-        let responseText = `Server: ${serverName}\nDescription: ${descriptionText}\nStatus: Created\nRegion: ${region}`;
+        let accessUrl, accessLabel;
         if (cdeToken) {
-            const cdeUrl = `https://cde-${serverName}.tunnels.glueopshosted.com?folder=/workspaces/glueops&tkn=${cdeToken}`;
-            responseText += `\nAccess: <${cdeUrl}|Cloud Development Environment>`;
+            accessUrl = `https://cde-${serverName}.tunnels.glueopshosted.com?folder=/workspaces/glueops&tkn=${cdeToken}`;
+            accessLabel = 'Cloud Development Environment';
         } else {
-            responseText += `\nAccess: <${process.env.GUACAMOLE_CONNECTION_URL}|Guacamole>`;
+            accessUrl = process.env.GUACAMOLE_CONNECTION_URL;
+            accessLabel = 'Guacamole';
         }
+
+        let responseText = `Server: ${serverName}\nDescription: ${descriptionText}\nStatus: Created\nRegion: ${region}`;
+        responseText += `\nAccess: <${accessUrl}|${accessLabel}>`;
         responseText += `\n\n_Note: It may take up to 60 seconds for the server to be accessible as it has just been created._`;
 
         await client.chat.postEphemeral({
@@ -99,7 +103,7 @@ export default {
             text: responseText
         });
 
-        return { success: true, serverName, description: descriptionText };
+        return { success: true, serverName, description: descriptionText, accessUrl, accessLabel };
     },
 
     deleteServer: async ({ app, body, serverName, region }) => {
