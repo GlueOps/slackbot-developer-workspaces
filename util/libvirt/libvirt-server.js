@@ -38,12 +38,13 @@ export default {
         }
     
         const userEmail = info.user.profile.email;
+        const descriptionText = description || 'No description';
 
         //post a status message
         await client.chat.postEphemeral({
             channel: channel_id,
             user: body.user.id,
-            text: `Creating the server: ${serverName} with image: ${imageName}`
+            text: `Creating the server: ${serverName} with image: ${imageName}\nDescription: ${descriptionText}`
         });
 
         // Build tags object, including CDE token if enabled
@@ -76,14 +77,14 @@ export default {
             await client.chat.postEphemeral({
             channel: channel_id,
             user: body.user.id,
-            text: `Failed to create a server.`
+            text: `Failed to create server: ${serverName}\nDescription: ${descriptionText}`
             });
 
-            return;
+            return { success: false, serverName, description: descriptionText };
         }
 
         //return info for connection
-        let responseText = `Server: ${serverName}\nStatus: Created\nRegion: ${region}`;
+        let responseText = `Server: ${serverName}\nDescription: ${descriptionText}\nStatus: Created\nRegion: ${region}`;
         if (cdeToken) {
             const cdeUrl = `https://cde-${serverName}.tunnels.glueopshosted.com?folder=/workspaces/glueops&tkn=${cdeToken}`;
             responseText += `\nAccess: <${cdeUrl}|Cloud Development Environment>`;
@@ -97,6 +98,8 @@ export default {
             user: body.user.id,
             text: responseText
         });
+
+        return { success: true, serverName, description: descriptionText };
     },
 
     deleteServer: async ({ app, body, serverName, region }) => {

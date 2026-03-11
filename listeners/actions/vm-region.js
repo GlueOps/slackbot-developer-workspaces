@@ -1,10 +1,15 @@
 import axios from 'axios';
 import vmModal from '../../user-interface/modals/vm-create.js';
 
+const MAX_VM_RAM_MB = 9216;
+
 export default async function vmRegionCallback({ ack, body, client }) {
   await ack();
 
   const selectedRegion = body.actions[0].selected_option.value;
+  const metaData = body.view.private_metadata;
+  const parsedMetaData = JSON.parse(metaData);
+  const vmCount = parsedMetaData.vmCount || 1;
 
   let regionsRes, imagesRes;
   try {
@@ -19,15 +24,27 @@ export default async function vmRegionCallback({ ack, body, client }) {
     return;
   }
 
-  const regions = regionsRes.data || [];
+  let regions = regionsRes.data || [];
   const images = imagesRes.data.images || [];
+
+  // When creating multiple VMs, filter to regions that have small enough instance types
+  if (vmCount > 1) {
+    regions = regions.filter(r =>
+      r.available_instance_types?.some(t => t.memory_mb <= MAX_VM_RAM_MB)
+    );
+  }
+
   const regionObj = regions.find(r => r.region_name === selectedRegion);
-  const servers = regionObj ? regionObj.available_instance_types : [];
-  const metaData = body.view.private_metadata;
+  let servers = regionObj ? regionObj.available_instance_types : [];
+
+  // When creating multiple VMs, filter instance types by RAM
+  if (vmCount > 1) {
+    servers = servers.filter(s => s.memory_mb <= MAX_VM_RAM_MB);
+  }
 
   // Update the modal in place
   await client.views.update({
     view_id: body.view.id,
-    view: vmModal({ regions, images, servers, metaData })
+    view: vmModal({ regions, images, servers, metaData, vmCount })
   });
 }
