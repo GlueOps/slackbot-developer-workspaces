@@ -1,6 +1,5 @@
 import libvirt from '../../util/libvirt/libvirt-server.js';
 import vmCreateModal from '../../user-interface/modals/vm-create.js';
-import vmDeleteModal from '../../user-interface/modals/vm-delete.js';
 import buttonBuilder from '../../util/button-builder.js';
 import { formatCreatedDate, sortByCreatedAtAsc } from '../../util/format-date.js';
 import 'dotenv/config';
@@ -254,50 +253,14 @@ export default {
     case 'delete': {
       const serverName = args[1];
       if (!serverName) {
-        // No server name — open the delete modal with multi-select
-        const loadingResult = await app.client.views.open({
-          trigger_id: body.trigger_id,
-          view: {
-            type: 'modal',
-            callback_id: 'vm-modal-loading',
-            title: { type: 'plain_text', text: 'Loading...' },
-            blocks: [
-              {
-                type: 'section',
-                text: { type: 'plain_text', text: 'Fetching your VMs...' }
-              }
-            ]
-          }
+        await app.client.chat.postEphemeral({
+          channel: event.channel_id,
+          user: event.user_id,
+          text: `Please provide a server name to delete. Usage: /${commandPrefix}vm delete <server-name>`
         });
-
-        const servers = [...await libvirt.listServers({ app, body })];
-
-        if (!servers.length) {
-          await app.client.views.update({
-            view_id: loadingResult.view.id,
-            view: {
-              type: 'modal',
-              callback_id: 'vm-modal-empty',
-              title: { type: 'plain_text', text: 'Delete VMs' },
-              blocks: [
-                {
-                  type: 'section',
-                  text: { type: 'mrkdwn', text: "You don't currently have any servers to delete." }
-                }
-              ]
-            }
-          });
-          return;
-        }
-
-        await app.client.views.update({
-          view_id: loadingResult.view.id,
-          view: vmDeleteModal({ servers, metaData: JSON.stringify({ channel_id: event.channel_id, servers }) })
-        });
-        break;
+        return;
       }
 
-      // Direct delete by server name (existing shortcut behavior)
       await app.client.chat.postEphemeral({
         channel: event.channel_id,
         user: event.user_id,
@@ -376,7 +339,7 @@ export default {
       await app.client.chat.postEphemeral({
         channel: event.channel_id,
         user: event.user_id,
-        text: `Access your existing VMs with: <${process.env.GUACAMOLE_CONNECTION_URL}|Guacamole>\n\nAvailable subcommands:\n• /${commandPrefix}vm create [count] - Create one or more VMs (default: 1, max: ${MAX_VM_COUNT})\n• /${commandPrefix}vm list - List existing VMs\n• /${commandPrefix}vm start <vm name> - Start a VM\n• /${commandPrefix}vm stop <vm name> - Stop a VM\n• /${commandPrefix}vm delete - Select VMs to delete (or: /${commandPrefix}vm delete <vm name>)\n• /${commandPrefix}vm edit <vm name> - Edit a VM Description`,
+        text: `Access your existing VMs with: <${process.env.GUACAMOLE_CONNECTION_URL}|Guacamole>\n\nAvailable subcommands:\n• /${commandPrefix}vm create [count] - Create one or more VMs (default: 1, max: ${MAX_VM_COUNT})\n• /${commandPrefix}vm list - List existing VMs\n• /${commandPrefix}vm start <vm name> - Start a VM\n• /${commandPrefix}vm stop <vm name> - Stop a VM\n• /${commandPrefix}vm delete <vm name> - Delete a VM\n• /${commandPrefix}vm edit <vm name> - Edit a VM Description`,
       });
     }
   }
