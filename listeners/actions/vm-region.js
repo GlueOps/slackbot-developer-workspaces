@@ -36,6 +36,18 @@ export default async function vmRegionCallback({ ack, body, client }) {
 
   const regionObj = regions.find(r => r.region_name === selectedRegion);
   let servers = regionObj ? regionObj.available_instance_types : [];
+  const regionStats = regionObj != null && regionObj.cpu_pct != null
+    ? {
+        total_vcpus: regionObj.total_vcpus,
+        total_memory_gb: regionObj.total_memory_gb,
+        total_storage_gb: regionObj.total_storage_gb,
+        free_vcpus: regionObj.free_vcpus,
+        free_memory_gb: regionObj.free_memory_gb,
+        free_storage_gb: regionObj.free_storage_gb,
+        cpu_pct: regionObj.cpu_pct,
+        ram_pct: regionObj.ram_pct,
+      }
+    : null;
 
   // When creating multiple VMs, filter instance types by RAM
   if (vmCount > 1) {
@@ -45,6 +57,6 @@ export default async function vmRegionCallback({ ack, body, client }) {
   // Update the modal in place
   await client.views.update({
     view_id: body.view.id,
-    view: vmModal({ regions, images, servers, metaData, vmCount })
+    view: vmModal({ regions, images, servers, metaData, vmCount, regionStats })
   });
 }

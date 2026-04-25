@@ -1,6 +1,6 @@
 import { Modal, Blocks, Elements, Bits } from 'slack-block-builder';
 
-export default function vmCreateModal({ regions = [], images = [], servers = [], metaData, vmCount = 1 } = {}) {
+export default function vmCreateModal({ regions = [], images = [], servers = [], metaData, vmCount = 1, regionStats = null } = {}) {
   const title = vmCount > 1 ? `Create ${vmCount} VMs` : 'Create VM';
 
   const descriptionBlocks = [];
@@ -30,6 +30,16 @@ export default function vmCreateModal({ regions = [], images = [], servers = [],
               : [Bits.Option({ text: 'No regions available', value: 'placeholder' })]
           )
       ),
+
+      ...(regionStats != null
+        ? [Blocks.Context().elements(
+            Bits.Mrkdwn(
+              `*Total:*       ${regionStats.total_vcpus} vCPU  •  ${regionStats.total_memory_gb}GB RAM  •  ${regionStats.total_storage_gb}GB Disk\n` +
+              `*Unallocated:* ${regionStats.free_vcpus} vCPU  •  ${regionStats.free_memory_gb}GB RAM  •  ${regionStats.free_storage_gb}GB Disk\n` +
+              `${regionStats.cpu_pct >= 80 ? '🔴' : regionStats.cpu_pct >= 50 ? '🟡' : '🟢'} *Current load:* ${regionStats.cpu_pct}% CPU  •  ${regionStats.ram_pct}% RAM`
+            )
+          )]
+        : []),
 
       Blocks.Input({ label: 'Image', blockId: 'image' }).element(
         Elements.StaticSelect({ actionId: 'image' })
