@@ -11,6 +11,23 @@ export default async function vmRegionCallback({ ack, body, client }) {
   const parsedMetaData = JSON.parse(metaData);
   const vmCount = parsedMetaData.vmCount || 1;
 
+  await client.views.update({
+    view_id: body.view.id,
+    view: {
+      type: 'modal',
+      callback_id: 'vm-create-modal',
+      private_metadata: metaData,
+      title: { type: 'plain_text', text: vmCount > 1 ? `Create ${vmCount} VMs` : 'Create VM' },
+      submit: { type: 'plain_text', text: 'Submit' },
+      blocks: [
+        {
+          type: 'section',
+          text: { type: 'mrkdwn', text: `*Region:* ${selectedRegion}\n_Loading availability..._` }
+        }
+      ]
+    }
+  });
+
   let regionsRes, imagesRes;
   try {
     [regionsRes, imagesRes] = await Promise.all([
@@ -21,6 +38,18 @@ export default async function vmRegionCallback({ ack, body, client }) {
     ]);
   } catch (error) {
     console.error('Error fetching regions/images in region callback:', error);
+    await client.views.update({
+      view_id: body.view.id,
+      view: {
+        type: 'modal',
+        callback_id: 'vm-create-modal',
+        private_metadata: metaData,
+        title: { type: 'plain_text', text: vmCount > 1 ? `Create ${vmCount} VMs` : 'Create VM' },
+        blocks: [
+          { type: 'section', text: { type: 'mrkdwn', text: ':warning: Failed to load region data. Please close and try again.' } }
+        ]
+      }
+    });
     return;
   }
 
