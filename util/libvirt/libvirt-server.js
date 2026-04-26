@@ -5,16 +5,17 @@ import configUserData from "../get-user-data.js";
 import axiosError from '../axios-error-handler.js';
 import { uniqueNamesGenerator, colors, animals } from 'unique-names-generator';
 import { generateCdeToken } from '../token-generator.js';
+import { randomBytes } from 'crypto';
 
 const log = logger();
 
 export default {
     createServer: async({ client, body, imageName, region, instanceType, description, channel_id, singleClickExperience }) => {
         //auto generate the name
-        const serverName = uniqueNamesGenerator({ 
+        const serverName = uniqueNamesGenerator({
             dictionaries: [ colors, animals ],
             separator: '-'
-        });
+        }) + '-' + randomBytes(3).toString('hex');
 
         // Generate CDE token if Single-Click Experience is enabled
         const cdeToken = singleClickExperience ? generateCdeToken() : null;
