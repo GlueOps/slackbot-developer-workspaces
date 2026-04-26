@@ -86,6 +86,6 @@ export default async function vmRegionCallback({ ack, body, client }) {
   // Update the modal in place
   await client.views.update({
     view_id: body.view.id,
-    view: vmModal({ regions, images, servers, metaData, vmCount, regionStats })
+    view: vmModal({ regions, images, servers, metaData, vmCount, regionStats, selectedRegion })
   });
 }

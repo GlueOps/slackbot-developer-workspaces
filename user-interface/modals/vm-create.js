@@ -1,6 +1,6 @@
 import { Modal, Blocks, Elements, Bits } from 'slack-block-builder';
 
-export default function vmCreateModal({ regions = [], images = [], servers = [], metaData, vmCount = 1, regionStats = null } = {}) {
+export default function vmCreateModal({ regions = [], images = [], servers = [], metaData, vmCount = 1, regionStats = null, selectedRegion = null } = {}) {
   const title = vmCount > 1 ? `Create ${vmCount} VMs` : 'Create VM';
 
   const descriptionBlocks = [];
@@ -28,6 +28,11 @@ export default function vmCreateModal({ regions = [], images = [], servers = [],
                   Bits.Option({ text: region.region_name, value: region.region_name })
                 )
               : [Bits.Option({ text: 'No regions available', value: 'placeholder' })]
+          )
+          .initialOption(
+            selectedRegion
+              ? Bits.Option({ text: selectedRegion, value: selectedRegion })
+              : undefined
           )
       ),
 
