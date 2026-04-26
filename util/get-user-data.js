@@ -9,10 +9,10 @@ export default function configUserData(serverName, cdeToken = null) {
         hostname: ${serverName}
         manage_etc_hosts: true
         runcmd:
+            - ['passwd', '-d', 'root']
             - ['tailscale', 'up', '--authkey=${process.env.TAILSCALE_AUTH_KEY}', '--hostname=${serverName}']
             - ['tailscale', 'set', '--ssh']
-            - ['tailscale', 'set', '--accept-routes']
-            - ['passwd', '-d', 'root']`;
+            - ['tailscale', 'set', '--accept-routes']`;
 
     // If CDE token is provided, write it to disk and run startup commands
     if (cdeToken) {
