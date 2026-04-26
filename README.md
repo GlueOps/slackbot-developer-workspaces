@@ -1,15 +1,15 @@
 # slackbot-developer-workspaces
 
-This is the source code for a Slack bot. It is coded in Javascript using bolt.
-The bot is set up to run in HTTP mode. The server is a heart-beat monitor 
-and runs on port 5000 by default.
+A Slack bot (Bolt.js, HTTP mode) for provisioning and managing developer VMs via slash commands. Talks to the [GlueOps Provisioner](https://github.com/GlueOps/provisioner) API, which supports both **libvirt** (bare-metal) and **Proxmox VE** backends.
+
+> **For developers and AI agents:** See [CLAUDE.md](CLAUDE.md) and [.ai/AGENTS.md](.ai/AGENTS.md) for architecture, key patterns, invariants, and module reference.
 
 # Installation
 ### Dependencies
 - Docker installed
 - Slack App setup
 - Tailscale Account and configured with auth token to add machines
-- [Provisioner](https://github.com/GlueOps/provisioner) API Deployed to provision VMs on libvirt
+- [Provisioner](https://github.com/GlueOps/provisioner) API deployed (libvirt and/or Proxmox backends)
 
 ### Steps
 1. pull down the latest image from ghcr
