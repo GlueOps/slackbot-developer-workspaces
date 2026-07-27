@@ -3,7 +3,7 @@
     defaults that a developer can apply when creating a VM. The bot is otherwise
     stateless, so this is the one piece of durable state it owns.
 
-    Layout: one JSON document per user at `${PREFIX}<email>.json`, shape:
+    Layout: one encrypted document per user at `${PREFIX}<hmac(email)>.json`; decrypted shape:
         { "profiles": { "<name>": { env: {K:V}, region, image, instanceType, singleClick } } }
 
     All mutations are read-modify-write on that single per-user document. Concurrent
@@ -17,13 +17,13 @@
 
     The entire per-user document is encrypted at rest (AES-256-GCM, see profile-crypto.js)
     using PROFILES_ENCRYPTION_KEY — profile names, env keys, and values are all opaque in
-    S3. Encryption/decryption is fully internal to this module, so callers see plaintext.
-    (The S3 object key still contains the user's email; only the object *contents* are
-    encrypted.)
+    S3. The S3 object key is a keyed hash of the email (HMAC-SHA256 with the same key), so
+    the bucket reveals neither the contents nor whose profiles an object holds.
+    Encryption/hashing is fully internal to this module, so callers see plaintext + email.
 */
 import { S3Client, GetObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
 import logger from './logger.js';
-import { encrypt, decrypt, encryptionKeyValid } from './profile-crypto.js';
+import { encrypt, decrypt, encryptionKeyValid, hashEmail } from './profile-crypto.js';
 
 const log = logger();
 
@@ -76,10 +76,10 @@ export function requireProfilesConfig() {
     }
 }
 
-// Email is URL-encoded so characters like '+' in a plus-addressed address can't produce
-// a surprising key; lowercased so the key matches regardless of how Slack cases it.
+// Object key = a keyed hash of the normalized email, so the filename is an opaque,
+// safe-charset id that leaks neither identity nor casing/whitespace differences.
 function keyFor(email) {
-    return `${PREFIX}${encodeURIComponent(String(email).toLowerCase())}.json`;
+    return `${PREFIX}${hashEmail(email)}.json`;
 }
 
 async function streamToString(stream) {

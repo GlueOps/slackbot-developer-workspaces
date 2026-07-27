@@ -55,3 +55,13 @@ export function decrypt(packed) {
     decipher.setAuthTag(Buffer.from(tagHex, 'hex'));
     return Buffer.concat([decipher.update(Buffer.from(ctHex, 'hex')), decipher.final()]).toString('utf8');
 }
+
+// Deterministic, keyed, one-way id for a user's S3 object filename. HMAC-SHA256 keyed
+// with PROFILES_ENCRYPTION_KEY, so the email→filename mapping can't be computed without
+// the key (a bucket reader can't tell whose profiles an object holds). The email is
+// normalized (trimmed + lowercased) so a Slack casing/whitespace change yields the same
+// id. Returns 64 hex chars.
+export function hashEmail(email) {
+    const normalized = String(email).trim().toLowerCase();
+    return crypto.createHmac('sha256', getKey()).update(normalized).digest('hex');
+}
