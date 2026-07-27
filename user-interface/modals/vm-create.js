@@ -3,14 +3,22 @@ import { Modal, Blocks, Elements, Bits } from 'slack-block-builder';
 export default function vmCreateModal({ regions = [], images = [], servers = [], metaData, vmCount = 1, regionStats = null, selectedRegion = null, profiles = [], selectedProfile = null } = {}) {
   const title = vmCount > 1 ? `Create ${vmCount} VMs` : 'Create VM';
 
-  const descriptionBlocks = [];
+  // Per-VM fields: each VM gets its own description and repo to clone (different VMs are
+  // usually different repos). Region/image/size/env stay shared across the batch.
+  const perVmBlocks = [];
   for (let i = 1; i <= vmCount; i++) {
-    const label = vmCount > 1 ? `VM ${i} Description` : 'VM Description';
-    descriptionBlocks.push(
-      Blocks.Input({ label, blockId: `description_${i}`, optional: true }).element(
+    const descLabel = vmCount > 1 ? `VM ${i} Description` : 'VM Description';
+    const repoLabel = vmCount > 1 ? `VM ${i} repository to clone` : 'Git repository to clone';
+    perVmBlocks.push(
+      Blocks.Input({ label: descLabel, blockId: `description_${i}`, optional: true }).element(
         Elements.TextInput({ actionId: `description_${i}` })
           .placeholder('A short description of the VM')
           .maxLength(100)
+      ),
+      Blocks.Input({ label: repoLabel, blockId: `clone_repo_${i}`, optional: true }).element(
+        Elements.TextInput({ actionId: `clone_repo_${i}` })
+          .placeholder('owner/repo or https://github.com/owner/repo')
+          .maxLength(300)
       )
     );
   }
@@ -84,13 +92,7 @@ export default function vmCreateModal({ regions = [], images = [], servers = [],
           )
       ),
 
-      ...descriptionBlocks,
-
-      Blocks.Input({ label: 'Git repository to clone', blockId: 'clone_repo', optional: true }).element(
-        Elements.TextInput({ actionId: 'clone_repo' })
-          .placeholder('owner/repo or https://github.com/owner/repo')
-          .maxLength(300)
-      ),
+      ...perVmBlocks,
 
       Blocks.Input({ label: 'Environment variables', blockId: 'env_vars', optional: true }).element(
         Elements.TextInput({ actionId: 'env_vars' })

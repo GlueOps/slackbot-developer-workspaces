@@ -31,10 +31,6 @@ export default async function vmCreateModalCallback({ ack, view, body, client })
     opt => opt.value === 'single_click_enabled'
   ) ?? false;
 
-  // Repo to clone is per-create and never saved. Passed through as typed (owner/repo or
-  // a URL); the codespaces image normalises + clones its default branch at boot.
-  const cloneRepo = (values.clone_repo?.clone_repo?.value || '').trim() || null;
-
   // If a profile was picked, merge its env under what the user typed (typed wins). Any
   // failure to load the profile degrades to "just the typed env" rather than blocking.
   const selectedProfile = values.profile?.profile?.selected_option?.value || null;
@@ -56,12 +52,13 @@ export default async function vmCreateModalCallback({ ack, view, body, client })
   const metaData = JSON.parse(view.private_metadata);
   const vmCount = metaData.vmCount || 1;
 
-  // Extract descriptions for each VM
+  // Extract per-VM description + repo to clone. Repo is per-create and never saved;
+  // passed through as typed (owner/repo or URL) for the codespaces image to clone at boot.
   const descriptions = [];
+  const cloneRepos = [];
   for (let i = 1; i <= vmCount; i++) {
-    const blockId = `description_${i}`;
-    const actionId = `description_${i}`;
-    descriptions.push(values[blockId]?.[actionId]?.value || '');
+    descriptions.push(values[`description_${i}`]?.[`description_${i}`]?.value || '');
+    cloneRepos.push((values[`clone_repo_${i}`]?.[`clone_repo_${i}`]?.value || '').trim() || null);
   }
 
   if (vmCount === 1) {
@@ -69,17 +66,17 @@ export default async function vmCreateModalCallback({ ack, view, body, client })
     libvirt.createServer({
       client, body, imageName: selectedImage, region: selectedRegion,
       instanceType: selectedServer, description: descriptions[0],
-      singleClickExperience, userEnv: finalEnv, cloneRepo, profileName, ...metaData
+      singleClickExperience, userEnv: finalEnv, cloneRepo: cloneRepos[0], profileName, ...metaData
     });
   } else {
-    // Batch creation: create all VMs in parallel. Env vars + repo are entered once and
-    // applied to every VM in the batch.
+    // Batch creation: create all VMs in parallel. Region/image/size/env are shared; each
+    // VM gets its own description and repo.
     const results = await Promise.allSettled(
-      descriptions.map(description =>
+      descriptions.map((description, idx) =>
         libvirt.createServer({
           client, body, imageName: selectedImage, region: selectedRegion,
           instanceType: selectedServer, description,
-          singleClickExperience, userEnv: finalEnv, cloneRepo, profileName, ...metaData
+          singleClickExperience, userEnv: finalEnv, cloneRepo: cloneRepos[idx], profileName, ...metaData
         })
       )
     );
