@@ -1,6 +1,31 @@
 import { Modal, Blocks, Elements, Bits } from 'slack-block-builder';
 
-export default function vmCreateModal({ regions = [], images = [], servers = [], metaData, vmCount = 1, regionStats = null, selectedRegion = null, profiles = [], selectedProfile = null, selectedImage = null, selectedServer = null, descriptions = [], cloneRepos = [], envText = '', singleClick = false } = {}) {
+// Pre-seeded into the env-vars textarea on first open (GlueOps-specific, hardcoded).
+// Recommended keys with blank values (parse-env-vars.js drops blanks, so unfilled ones
+// are ignored) plus a self-documenting CDE_SETUP_SCRIPT default. `#` lines are comments,
+// ignored on submit — they're just guidance.
+const DEFAULT_ENV_TEXT = [
+  '# Fill in what you need; blank lines are ignored.',
+  '# GITHUB_TOKEN — required for PRIVATE repo clones and gh auth; public repos work without it.',
+  'GITHUB_TOKEN=',
+  '# AutoGlue SSH (gluekube_ssh): URLs prefilled; add a token to auto-create that profile.',
+  'GLUEKUBE_SSH_AUTOGLUE_PROD_URL=https://autoglue.glueopshosted.com/api/v1',
+  'GLUEKUBE_SSH_AUTOGLUE_NONPROD_URL=https://autoglue.glueopshosted.rocks/api/v1',
+  'GLUEKUBE_SSH_AUTOGLUE_PROD_TOKEN=',
+  'GLUEKUBE_SSH_AUTOGLUE_NONPROD_TOKEN=',
+  '# CDE_SETUP_SCRIPT runs when your CDE starts:',
+  '#   cde-init          = default: gh auth + clone your repo + set up AutoGlue',
+  '#   <a command>       = run it instead, e.g.  curl setup.example.com | zsh',
+  '#   base64:<encoded>  = a complex/multi-line script  (<script> | base64 -w0)',
+  '#                       e.g.  base64:Y2RlLWluaXQ=  decodes to  cde-init',
+  '#   (blank)           = skip setup',
+  'CDE_SETUP_SCRIPT=cde-init',
+].join('\n');
+
+// `envText` is undefined on first open → pre-seed DEFAULT_ENV_TEXT. On a region re-render,
+// vm-region.js passes the current textarea value (a string, possibly empty), shown as-is so
+// a dev who edited or cleared it isn't reset back to the default.
+export default function vmCreateModal({ regions = [], images = [], servers = [], metaData, vmCount = 1, regionStats = null, selectedRegion = null, profiles = [], selectedProfile = null, selectedImage = null, selectedServer = null, descriptions = [], cloneRepos = [], envText, singleClick = false } = {}) {
   const title = vmCount > 1 ? `Create ${vmCount} VMs` : 'Create VM';
 
   // Per-VM fields: each VM gets its own description and repo to clone (different VMs are
@@ -107,7 +132,7 @@ export default function vmCreateModal({ regions = [], images = [], servers = [],
         Elements.TextInput({ actionId: 'env_vars' })
           .multiline(true)
           .placeholder('One per line, KEY=VALUE\nGITHUB_TOKEN=ghp_...\nDATABASE_URL=postgres://...')
-          .initialValue(envText || undefined)
+          .initialValue((envText === undefined ? DEFAULT_ENV_TEXT : envText) || undefined)
           .maxLength(3000)
       ),
 

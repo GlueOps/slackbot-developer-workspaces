@@ -1,7 +1,7 @@
 /*
     Parses the free-form "Environment variables" textarea from the VM create modal
-    into a { KEY: VALUE } object. Format: one KEY=VALUE per line. Blank lines and
-    lines beginning with '#' (comments) are ignored.
+    into a { KEY: VALUE } object. Format: one KEY=VALUE per line. Blank lines, lines
+    beginning with '#' (comments), and keys with an empty value (KEY=) are ignored.
 
     Returns { env, errors }. `errors` lists the 1-indexed lines that could not be
     parsed, so the view handler can reject the modal with inline feedback instead of
@@ -49,6 +49,12 @@ export default function parseEnvVars(text) {
             errors.push(`Line ${lineNo}: keys starting with GLUEOPS_CDE_ are reserved`);
             continue;
         }
+
+        // A blank value (`KEY=` or `KEY=   `) means "not set" — skip it. This lets the
+        // create modal pre-seed recommended keys (e.g. `GITHUB_TOKEN=`) that a dev may
+        // leave blank without writing empty env-file lines or overriding a selected
+        // profile's value during the merge in vm-create-modal.js.
+        if (value.trim() === '') continue;
 
         env[key] = value;
     }
