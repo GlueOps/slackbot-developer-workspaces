@@ -111,9 +111,7 @@ export default {
         if (profileName) {
             responseText += `\nProfile: ${profileName}`;
         }
-        if (cloneRepo) {
-            responseText += `\nRepo: ${cloneRepo}`;
-        }
+        responseText += `\nRepo: ${cloneRepo || 'None'}`;
         responseText += `\nAccess: <${accessUrl}|${accessLabel}>`;
         responseText += `\n\n_Note: It may take up to 60 seconds for the server to be accessible as it has just been created._`;
 

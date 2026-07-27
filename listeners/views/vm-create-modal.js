@@ -1,5 +1,6 @@
 import libvirt from '../../util/libvirt/libvirt-server.js';
 import parseEnvVars from '../../util/parse-env-vars.js';
+import parseRepo from '../../util/parse-repo.js';
 import { getProfile } from '../../util/profile-store.js';
 import logger from '../../util/logger.js';
 
@@ -7,18 +8,29 @@ const log = logger();
 
 export default async function vmCreateModalCallback({ ack, view, body, client }) {
   const values = view.state.values;
+  const metaData = JSON.parse(view.private_metadata);
+  const vmCount = metaData.vmCount || 1;
 
-  // Parse + validate user-supplied env vars BEFORE acking, so malformed lines can be
-  // rejected with inline modal errors rather than silently dropped. Slack's `errors`
-  // map is keyed by block_id and takes a single string, so we fold the per-line
-  // messages into one (capped well under Slack's limit).
-  const envText = values.env_vars?.env_vars?.value || '';
-  const { env: userEnv, errors: envErrors } = parseEnvVars(envText);
-  if (envErrors.length > 0) {
-    await ack({
-      response_action: 'errors',
-      errors: { env_vars: envErrors.join('  •  ').slice(0, 1900) }
-    });
+  // Validate env + per-VM repos BEFORE acking so problems surface as inline modal errors
+  // (keyed by block_id) rather than being silently dropped.
+  const errors = {};
+
+  const { env: userEnv, errors: envErrors } = parseEnvVars(values.env_vars?.env_vars?.value || '');
+  if (envErrors.length > 0) errors.env_vars = envErrors.join('  •  ').slice(0, 1900);
+
+  // Extract per-VM description + repo. Repo is validated and normalised to a canonical
+  // https://github.com/owner/repo.git URL; blank is allowed (optional).
+  const descriptions = [];
+  const cloneRepos = [];
+  for (let i = 1; i <= vmCount; i++) {
+    descriptions.push(values[`description_${i}`]?.[`description_${i}`]?.value || '');
+    const { repo, error } = parseRepo(values[`clone_repo_${i}`]?.[`clone_repo_${i}`]?.value || '');
+    if (error) errors[`clone_repo_${i}`] = error;
+    cloneRepos.push(repo || null);
+  }
+
+  if (Object.keys(errors).length > 0) {
+    await ack({ response_action: 'errors', errors });
     return;
   }
 
@@ -47,18 +59,6 @@ export default async function vmCreateModalCallback({ ack, view, body, client })
     } catch (err) {
       log.error('create: failed to apply profile, continuing with typed env only', err);
     }
-  }
-
-  const metaData = JSON.parse(view.private_metadata);
-  const vmCount = metaData.vmCount || 1;
-
-  // Extract per-VM description + repo to clone. Repo is per-create and never saved;
-  // passed through as typed (owner/repo or URL) for the codespaces image to clone at boot.
-  const descriptions = [];
-  const cloneRepos = [];
-  for (let i = 1; i <= vmCount; i++) {
-    descriptions.push(values[`description_${i}`]?.[`description_${i}`]?.value || '');
-    cloneRepos.push((values[`clone_repo_${i}`]?.[`clone_repo_${i}`]?.value || '').trim() || null);
   }
 
   if (vmCount === 1) {
@@ -97,8 +97,7 @@ export default async function vmCreateModalCallback({ ack, view, body, client })
     const lines = [];
     lines.push(`*Batch VM Creation Complete: ${succeeded.length}/${vmCount} succeeded*`);
     for (const vm of succeeded) {
-      const repoNote = vm.cloneRepo ? ` — repo: ${vm.cloneRepo}` : '';
-      lines.push(`✅ ${vm.serverName} — ${vm.description}${repoNote} — <${vm.accessUrl}|${vm.accessLabel}>`);
+      lines.push(`✅ ${vm.serverName} — ${vm.description} — repo: ${vm.cloneRepo || 'None'} — <${vm.accessUrl}|${vm.accessLabel}>`);
     }
     for (const vm of failed) {
       lines.push(`❌ ${vm.serverName} — Failed to create`);

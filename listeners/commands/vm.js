@@ -172,10 +172,7 @@ export default {
           ];
 
           // Build header text with optional CDE URL
-          let headerText = `Server: ${server.serverName}\nRegion: ${server.region}\nDescription: ${description}\nStatus: ${server.status}\nCreated: ${createdDate}`;
-          if (cloneRepo) {
-              headerText += `\nRepo: ${cloneRepo}`;
-          }
+          let headerText = `Server: ${server.serverName}\nRegion: ${server.region}\nDescription: ${description}\nStatus: ${server.status}\nCreated: ${createdDate}\nRepo: ${cloneRepo || 'None'}`;
           if (cdeToken) {
               const cdeUrl = `https://cde-${server.serverName}.tunnels.glueopshosted.com?folder=/workspaces/glueops&tkn=${cdeToken}`;
               headerText += `\nAccess: <${cdeUrl}|Cloud Development Environment>`;
