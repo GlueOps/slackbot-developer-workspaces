@@ -2,7 +2,7 @@
 
 A Slack bot (Bolt.js, HTTP mode) for provisioning and managing developer VMs via slash commands. Talks to the [GlueOps Provisioner](https://github.com/GlueOps/provisioner) API, which supports both **libvirt** (bare-metal) and **Proxmox VE** backends.
 
-On create, developers can inject custom environment variables, auto-clone a GitHub repo, and apply reusable **profiles** — bundles of env vars saved per-user in S3 and encrypted at rest. See [VM Profiles & Environment](#vm-profiles--environment).
+On create, developers can auto-clone a GitHub repo and apply reusable **profiles** — bundles of env vars saved per-user in S3 and encrypted at rest, and the only way to set custom environment variables. See [VM Profiles & Environment](#vm-profiles--environment).
 
 > **For developers and AI agents:** See [CLAUDE.md](CLAUDE.md) and [.ai/AGENTS.md](.ai/AGENTS.md) for architecture, key patterns, invariants, and module reference.
 
@@ -80,9 +80,8 @@ You can find an example ACL file in this [repo](tailscale-acls.json).
 
 When creating a VM, developers can:
 
-- **Set environment variables** — a `KEY=VALUE` textarea in the create modal, written verbatim into the VM's `/etc/glueops/codespace.env`.
 - **Clone a GitHub repo** — a per-VM field accepting `owner/repo`, `github.com/owner/repo`, or a full/`.git`/browser URL (normalised to a canonical clone URL).
-- **Apply a profile** — a saved, reusable bundle of env vars. Manage profiles with `/vm profile` (list), `/vm profile new`, `/vm profile delete <name>`, and the **Edit**/**Delete** buttons. Picking a profile at create time merges its env under anything typed (typed wins).
+- **Apply a profile** — a saved, reusable bundle of env vars, and the **only** way to set environment variables (there's no env textarea on the create modal). The profile's `KEY=VALUE` vars are written verbatim into the VM's `/etc/glueops/codespace.env`. Manage profiles with `/vm profile` (list), `/vm profile new`, `/vm profile delete <name>`, and the **Edit**/**Copy**/**Delete** buttons. Picking a profile at create time applies its env vars; if you have no profiles, the create modal points you to `/vm profile new`.
 
 ### Profiles storage & encryption
 

@@ -1,5 +1,4 @@
 import libvirt from '../../util/libvirt/libvirt-server.js';
-import parseEnvVars from '../../util/parse-env-vars.js';
 import parseRepo from '../../util/parse-repo.js';
 import { getProfile } from '../../util/profile-store.js';
 import logger from '../../util/logger.js';
@@ -11,8 +10,8 @@ export default async function vmCreateModalCallback({ ack, view, body, client })
   const metaData = JSON.parse(view.private_metadata);
   const vmCount = metaData.vmCount || 1;
 
-  // Validate env + per-VM repos BEFORE acking so problems surface as inline modal errors
-  // (keyed by block_id) rather than being silently dropped.
+  // Validate region/image/server + per-VM repos BEFORE acking so problems surface as inline
+  // modal errors (keyed by block_id) rather than being silently dropped.
   const errors = {};
 
   // Optional-chain every read: if this fires against a transient loading/error view (which
@@ -25,9 +24,6 @@ export default async function vmCreateModalCallback({ ack, view, body, client })
   if (!selectedRegion || selectedRegion === 'placeholder') errors.region = 'Please select a region.';
   if (!selectedImage || selectedImage === 'placeholder') errors.image = 'Please select an image.';
   if (!selectedServer || selectedServer === 'placeholder') errors.server = 'Please pick a region first, then a server type.';
-
-  const { env: userEnv, errors: envErrors } = parseEnvVars(values.env_vars?.env_vars?.value || '');
-  if (envErrors.length > 0) errors.env_vars = envErrors.join('  •  ').slice(0, 1900);
 
   // Extract per-VM description + repo. Repo is validated and normalised to a canonical
   // https://github.com/owner/repo.git URL; blank is allowed (optional).
@@ -51,12 +47,12 @@ export default async function vmCreateModalCallback({ ack, view, body, client })
     opt => opt.value === 'single_click_enabled'
   ) ?? false;
 
-  // If a profile was picked, merge its env under what the user typed (typed wins). A
-  // profile that can't be loaded ABORTS creation — we never create a VM that's silently
-  // missing the secrets the developer selected. Invariant: VM created + profile selected
-  // ⟹ profile applied.
+  // Env vars come solely from the selected profile (the create modal has no env input). No
+  // profile → a plain VM with no injected env. A selected profile that can't be loaded
+  // ABORTS creation — we never create a VM that's silently missing the secrets the developer
+  // selected. Invariant: VM created + profile selected ⟹ profile applied.
   const selectedProfile = values.profile?.profile?.selected_option?.value || null;
-  let finalEnv = userEnv;
+  let finalEnv = {};
   let profileName = null;
   if (selectedProfile) {
     let profile;
@@ -80,7 +76,7 @@ export default async function vmCreateModalCallback({ ack, view, body, client })
       });
       return;
     }
-    finalEnv = { ...profile.env, ...userEnv };
+    finalEnv = profile.env;
     profileName = selectedProfile;
   }
 
