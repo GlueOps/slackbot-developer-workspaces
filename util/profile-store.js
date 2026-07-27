@@ -14,9 +14,16 @@
     throws if any of it is missing, so a misconfigured deploy fails fast instead of
     erroring on first use. Repo-to-clone is deliberately NOT stored — it's per-create
     (see vm-create flow).
+
+    The entire per-user document is encrypted at rest (AES-256-GCM, see profile-crypto.js)
+    using PROFILES_ENCRYPTION_KEY — profile names, env keys, and values are all opaque in
+    S3. Encryption/decryption is fully internal to this module, so callers see plaintext.
+    (The S3 object key still contains the user's email; only the object *contents* are
+    encrypted.)
 */
 import { S3Client, GetObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
 import logger from './logger.js';
+import { encrypt, decrypt, encryptionKeyValid } from './profile-crypto.js';
 
 const log = logger();
 
@@ -54,14 +61,18 @@ const REQUIRED_ENV = [
     'PROFILES_S3_REGION',
     'PROFILES_S3_ACCESS_KEY_ID',
     'PROFILES_S3_SECRET_ACCESS_KEY',
+    'PROFILES_ENCRYPTION_KEY',
 ];
 
-// Throws if any required S3 config is missing. Call once at startup so a misconfigured
-// deploy fails immediately with a clear message.
+// Throws if any required config is missing or the encryption key is the wrong size. Call
+// once at startup so a misconfigured deploy fails immediately with a clear message.
 export function requireProfilesConfig() {
     const missing = REQUIRED_ENV.filter(k => !process.env[k]);
     if (missing.length > 0) {
         throw new Error(`Missing required profiles S3 configuration: ${missing.join(', ')}`);
+    }
+    if (!encryptionKeyValid()) {
+        throw new Error('PROFILES_ENCRYPTION_KEY must be 32 bytes as 64 hex chars (generate with: openssl rand -hex 32)');
     }
 }
 
@@ -85,7 +96,7 @@ async function streamToString(stream) {
 async function readUserDoc(email) {
     try {
         const res = await getClient().send(new GetObjectCommand({ Bucket: BUCKET, Key: keyFor(email) }));
-        const doc = JSON.parse(await streamToString(res.Body));
+        const doc = JSON.parse(decrypt(await streamToString(res.Body)));
         return doc && typeof doc === 'object' && doc.profiles && typeof doc.profiles === 'object'
             ? doc
             : { profiles: {} };
@@ -101,8 +112,8 @@ async function writeUserDoc(email, doc) {
     await getClient().send(new PutObjectCommand({
         Bucket: BUCKET,
         Key: keyFor(email),
-        Body: JSON.stringify(doc),
-        ContentType: 'application/json',
+        Body: encrypt(JSON.stringify(doc)),
+        ContentType: 'text/plain',
     }));
 }
 
