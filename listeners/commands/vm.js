@@ -76,6 +76,25 @@ export default {
           log.error('Failed to open profile for editing', error);
           await app.client.chat.postEphemeral({ channel: body.channel.id, user: body.user.id, text: `Failed to open profile: ${name}` });
         }
+    } else if (actionId === 'button_profile_copy') {
+        const { name } = JSON.parse(body.actions[0].value);
+        try {
+          const info = await app.client.users.info({ user: body.user.id });
+          const profile = await getProfile(info.user.profile.email, name);
+          const envText = profile?.env
+            ? Object.entries(profile.env).map(([k, v]) => `${k}=${v}`).join('\n')
+            : '';
+          await app.client.views.open({
+            trigger_id: body.trigger_id,
+            // Copy = a new profile pre-filled from the source, with an EDITABLE name (no
+            // `name` in metaData). Suggests "<source>-copy"; the dev renames + saves. Also
+            // serves as rename (copy then delete the original).
+            view: vmProfileModal({ name: `${name}-copy`.slice(0, 60), envText, metaData: JSON.stringify({ channel_id: body.channel.id }) })
+          });
+        } catch (error) {
+          log.error('Failed to copy profile', error);
+          await app.client.chat.postEphemeral({ channel: body.channel.id, user: body.user.id, text: `Failed to copy profile: ${name}` });
+        }
     } else if (actionId === 'button_profile_delete') {
         const { name } = JSON.parse(body.actions[0].value);
         try {
@@ -445,6 +464,7 @@ export default {
             type: 'actions',
             elements: [
               { type: 'button', text: { type: 'plain_text', text: 'Edit' }, action_id: 'button_profile_edit', value: JSON.stringify({ name }) },
+              { type: 'button', text: { type: 'plain_text', text: 'Copy' }, action_id: 'button_profile_copy', value: JSON.stringify({ name }) },
               {
                 type: 'button', text: { type: 'plain_text', text: 'Delete' }, style: 'danger',
                 action_id: 'button_profile_delete', value: JSON.stringify({ name }),

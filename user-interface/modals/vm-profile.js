@@ -1,22 +1,26 @@
 import { Modal, Blocks, Elements } from 'slack-block-builder';
 
 /*
-    Modal to create or update a VM profile: a name plus a block of KEY=VALUE env vars.
+    Modal to create / copy / edit a VM profile: a name plus a block of KEY=VALUE env vars.
     Repo-to-clone is intentionally not here; it's chosen per-create, never saved.
 
-    Editing is signalled solely by a non-empty `name` (the caller passes the existing name
-    on edit, nothing on create). When editing, the name is LOCKED: rendered as static text
-    (Slack has no read-only input) and carried in private_metadata, so an edit always
-    overwrites the same profile in place and can't accidentally fork a renamed copy. When
-    creating, the name is an editable input.
+    `metaData` carries { channel_id, name? }, and `name` in metaData is the SINGLE source of
+    truth for edit-vs-not (the submit handler reads it the same way):
+      - name in metaData  → EDIT: the name is LOCKED (static text — Slack has no read-only
+        input) so the save overwrites that profile in place, can't fork a rename.
+      - no name in metaData → NEW or COPY: the name is an editable input, pre-filled from the
+        `name` arg (copy suggests "<source>-copy"; new leaves it blank).
+    `envText` pre-fills the env textarea (edit + copy).
 */
 export default function vmProfileModal({ name = '', envText = '', metaData } = {}) {
-  const editing = Boolean(name);
+  const meta = metaData ? JSON.parse(metaData) : {};
+  const editing = Boolean(meta.name);
   const nameBlock = editing
-    ? Blocks.Section().text(`*Profile:* ${name}  _(name can't be changed when editing)_`)
+    ? Blocks.Section().text(`*Profile:* ${meta.name}  _(name can't be changed when editing)_`)
     : Blocks.Input({ label: 'Profile name', blockId: 'profile_name' }).element(
         Elements.TextInput({ actionId: 'profile_name' })
           .placeholder('e.g. acme-api')
+          .initialValue(name || undefined)
           .maxLength(60)
       );
 
