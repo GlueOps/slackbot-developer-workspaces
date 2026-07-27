@@ -31,6 +31,10 @@ const BUCKET = process.env.PROFILES_S3_BUCKET;
 const REGION = process.env.PROFILES_S3_REGION;
 const ENDPOINT = process.env.PROFILES_S3_ENDPOINT || undefined;
 const PREFIX = process.env.PROFILES_S3_PREFIX ?? 'profiles/';
+// Bound every S3 call so an unresponsive endpoint can't hang a Slack interaction forever
+// (the AWS SDK's default request timeout is 0 = unbounded). AbortSignal.timeout fires once
+// at this absolute deadline, so it also caps the SDK's retries — no new dependency needed.
+const S3_TIMEOUT_MS = Number(process.env.PROFILES_S3_TIMEOUT_MS) || 5000;
 
 let client = null;
 
@@ -95,7 +99,10 @@ async function streamToString(stream) {
 // object (NoSuchKey / 404) is the expected first-use case, not an error.
 async function readUserDoc(email) {
     try {
-        const res = await getClient().send(new GetObjectCommand({ Bucket: BUCKET, Key: keyFor(email) }));
+        const res = await getClient().send(
+            new GetObjectCommand({ Bucket: BUCKET, Key: keyFor(email) }),
+            { abortSignal: AbortSignal.timeout(S3_TIMEOUT_MS) }
+        );
         const doc = JSON.parse(decrypt(await streamToString(res.Body)));
         return doc && typeof doc === 'object' && doc.profiles && typeof doc.profiles === 'object'
             ? doc
@@ -109,12 +116,15 @@ async function readUserDoc(email) {
 }
 
 async function writeUserDoc(email, doc) {
-    await getClient().send(new PutObjectCommand({
-        Bucket: BUCKET,
-        Key: keyFor(email),
-        Body: encrypt(JSON.stringify(doc)),
-        ContentType: 'text/plain',
-    }));
+    await getClient().send(
+        new PutObjectCommand({
+            Bucket: BUCKET,
+            Key: keyFor(email),
+            Body: encrypt(JSON.stringify(doc)),
+            ContentType: 'text/plain',
+        }),
+        { abortSignal: AbortSignal.timeout(S3_TIMEOUT_MS) }
+    );
 }
 
 // Returns { name: profile } for the user (empty object if none / on read failure — a
