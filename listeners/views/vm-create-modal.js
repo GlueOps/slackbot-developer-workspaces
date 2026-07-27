@@ -15,6 +15,15 @@ export default async function vmCreateModalCallback({ ack, view, body, client })
   // (keyed by block_id) rather than being silently dropped.
   const errors = {};
 
+  const selectedRegion = values.region.region.selected_option.value;
+  const selectedImage = values.image.image.selected_option.value;
+  const selectedServer = values.server.server.selected_option.value;
+  // Guard the placeholder options that appear when a list is empty ("Select a region
+  // first", "No images available") from being submitted to the provisioner.
+  if (selectedRegion === 'placeholder') errors.region = 'Please select a region.';
+  if (selectedImage === 'placeholder') errors.image = 'Please select an image.';
+  if (selectedServer === 'placeholder') errors.server = 'Please pick a region first, then a server type.';
+
   const { env: userEnv, errors: envErrors } = parseEnvVars(values.env_vars?.env_vars?.value || '');
   if (envErrors.length > 0) errors.env_vars = envErrors.join('  •  ').slice(0, 1900);
 
@@ -36,9 +45,6 @@ export default async function vmCreateModalCallback({ ack, view, body, client })
 
   await ack();
 
-  const selectedRegion = values.region.region.selected_option.value;
-  const selectedImage = values.image.image.selected_option.value;
-  const selectedServer = values.server.server.selected_option.value;
   const singleClickExperience = values.launchMode?.singleClickExperience?.selected_options?.some(
     opt => opt.value === 'single_click_enabled'
   ) ?? false;
@@ -76,7 +82,8 @@ export default async function vmCreateModalCallback({ ack, view, body, client })
         libvirt.createServer({
           client, body, imageName: selectedImage, region: selectedRegion,
           instanceType: selectedServer, description,
-          singleClickExperience, userEnv: finalEnv, cloneRepo: cloneRepos[idx], profileName, ...metaData
+          singleClickExperience, userEnv: finalEnv, cloneRepo: cloneRepos[idx], profileName,
+          batch: true, ...metaData
         })
       )
     );
@@ -95,12 +102,14 @@ export default async function vmCreateModalCallback({ ack, view, body, client })
     }
 
     const lines = [];
-    lines.push(`*Batch VM Creation Complete: ${succeeded.length}/${vmCount} succeeded*`);
+    const titleProfile = profileName ? ` — profile: ${profileName}` : '';
+    lines.push(`*Batch VM Creation Complete: ${succeeded.length}/${vmCount} succeeded*${titleProfile}`);
     for (const vm of succeeded) {
-      lines.push(`✅ ${vm.serverName} — ${vm.description} — repo: ${vm.cloneRepo || 'None'} — <${vm.accessUrl}|${vm.accessLabel}>`);
+      lines.push(`✅ ${vm.serverName} — ${vm.description || 'No description'} — repo: ${vm.cloneRepo || 'None'} — <${vm.accessUrl}|${vm.accessLabel}>`);
     }
     for (const vm of failed) {
-      lines.push(`❌ ${vm.serverName} — Failed to create`);
+      const label = vm.serverName && vm.serverName !== 'unknown' ? vm.serverName : (vm.description || 'VM');
+      lines.push(`❌ ${label} — ${vm.description || 'No description'} — Failed to create`);
     }
 
     await client.chat.postEphemeral({

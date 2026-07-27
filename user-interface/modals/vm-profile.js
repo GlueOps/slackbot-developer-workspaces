@@ -15,6 +15,8 @@ export default function vmProfileModal({ name = '', envText = '', metaData } = {
           .maxLength(60)
       ),
 
+      Blocks.Context().elements('Saving with the name of an existing profile overwrites it.'),
+
       Blocks.Input({ label: 'Environment variables', blockId: 'env_vars', optional: true }).element(
         Elements.TextInput({ actionId: 'env_vars' })
           .multiline(true)

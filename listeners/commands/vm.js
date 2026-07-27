@@ -3,7 +3,7 @@ import vmCreateModal from '../../user-interface/modals/vm-create.js';
 import vmProfileModal from '../../user-interface/modals/vm-profile.js';
 import buttonBuilder from '../../util/button-builder.js';
 import { formatCreatedDate, sortByCreatedAtAsc } from '../../util/format-date.js';
-import { listProfiles, deleteProfile } from '../../util/profile-store.js';
+import { listProfiles, getProfile, deleteProfile } from '../../util/profile-store.js';
 import 'dotenv/config';
 import axios from 'axios';
 import logger from '../../util/logger.js';
@@ -60,6 +60,22 @@ export default {
           trigger_id: body.trigger_id,
           view: vmProfileModal({ metaData: JSON.stringify({ channel_id: body.channel.id }) })
         });
+    } else if (actionId === 'button_profile_edit') {
+        const { name } = JSON.parse(body.actions[0].value);
+        try {
+          const info = await app.client.users.info({ user: body.user.id });
+          const profile = await getProfile(info.user.profile.email, name);
+          const envText = profile?.env
+            ? Object.entries(profile.env).map(([k, v]) => `${k}=${v}`).join('\n')
+            : '';
+          await app.client.views.open({
+            trigger_id: body.trigger_id,
+            view: vmProfileModal({ name, envText, metaData: JSON.stringify({ channel_id: body.channel.id }) })
+          });
+        } catch (error) {
+          log.error('Failed to open profile for editing', error);
+          await app.client.chat.postEphemeral({ channel: body.channel.id, user: body.user.id, text: `Failed to open profile: ${name}` });
+        }
     } else if (actionId === 'button_profile_delete') {
         const { name } = JSON.parse(body.actions[0].value);
         try {
@@ -416,18 +432,33 @@ export default {
         { type: 'section', text: { type: 'mrkdwn', text: names.length ? '*Your VM profiles*' : "You don't have any profiles yet." } }
       ];
       for (const name of names) {
-        const count = Object.keys(profiles[name]?.env || {}).length;
-        blocks.push({
-          type: 'section',
-          text: { type: 'mrkdwn', text: `*${name}* — ${count} env var${count === 1 ? '' : 's'}` },
-          accessory: {
-            type: 'button',
-            text: { type: 'plain_text', text: 'Delete' },
-            style: 'danger',
-            action_id: 'button_profile_delete',
-            value: JSON.stringify({ name })
+        const keys = Object.keys(profiles[name]?.env || {});
+        // Show the keys (never values) so a profile is inspectable at a glance; cap the
+        // rendered list so a huge profile can't blow past Slack's text limits.
+        const shown = keys.slice(0, 12).join(', ');
+        const keyText = keys.length
+          ? `${shown}${keys.length > 12 ? `, +${keys.length - 12} more` : ''}`
+          : '_no env vars_';
+        blocks.push(
+          { type: 'section', text: { type: 'mrkdwn', text: `*${name}*\n${keyText}` } },
+          {
+            type: 'actions',
+            elements: [
+              { type: 'button', text: { type: 'plain_text', text: 'Edit' }, action_id: 'button_profile_edit', value: JSON.stringify({ name }) },
+              {
+                type: 'button', text: { type: 'plain_text', text: 'Delete' }, style: 'danger',
+                action_id: 'button_profile_delete', value: JSON.stringify({ name }),
+                confirm: {
+                  title: { type: 'plain_text', text: 'Delete profile?' },
+                  text: { type: 'mrkdwn', text: `This permanently deletes *${name}*.` },
+                  confirm: { type: 'plain_text', text: 'Delete' },
+                  deny: { type: 'plain_text', text: 'Cancel' },
+                  style: 'danger'
+                }
+              }
+            ]
           }
-        });
+        );
       }
       blocks.push({
         type: 'actions',
@@ -445,7 +476,7 @@ export default {
       await app.client.chat.postEphemeral({
         channel: event.channel_id,
         user: event.user_id,
-        text: `Access your existing VMs with: <${process.env.GUACAMOLE_CONNECTION_URL}|Guacamole>\n\nAvailable subcommands:\n• /${commandPrefix}vm create [count] - Create one or more VMs (default: 1, max: ${MAX_VM_COUNT})\n• /${commandPrefix}vm list - List existing VMs\n• /${commandPrefix}vm start <vm name> - Start a VM\n• /${commandPrefix}vm stop <vm name> - Stop a VM\n• /${commandPrefix}vm delete <vm name> - Delete a VM\n• /${commandPrefix}vm edit <vm name> - Edit a VM Description\n• /${commandPrefix}vm profile - Manage reusable env-var profiles`,
+        text: `Access your existing VMs with: <${process.env.GUACAMOLE_CONNECTION_URL}|Guacamole>\n\nAvailable subcommands:\n• /${commandPrefix}vm create [count] - Create one or more VMs (default: 1, max: ${MAX_VM_COUNT})\n• /${commandPrefix}vm list - List existing VMs\n• /${commandPrefix}vm start <vm name> - Start a VM\n• /${commandPrefix}vm stop <vm name> - Stop a VM\n• /${commandPrefix}vm delete <vm name> - Delete a VM\n• /${commandPrefix}vm edit <vm name> - Edit a VM Description\n• /${commandPrefix}vm profile - List your reusable env-var profiles\n• /${commandPrefix}vm profile new - Create a profile\n• /${commandPrefix}vm profile delete <name> - Delete a profile`,
       });
     }
   }

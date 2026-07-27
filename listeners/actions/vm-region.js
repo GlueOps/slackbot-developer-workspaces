@@ -83,14 +83,31 @@ export default async function vmRegionCallback({ ack, body, client }) {
     servers = servers.filter(s => s.memory_mb <= MAX_VM_RAM_MB);
   }
 
-  // Preserve the profile picker + any current selection across the in-place rebuild
-  // (profile names are stashed in private_metadata when the modal is first opened).
+  // Preserve everything the user already typed across the in-place rebuild — otherwise
+  // switching regions silently wipes it. Profile names come from private_metadata; the
+  // rest is read back from the current view state. Server Type is intentionally NOT
+  // preserved (its options are region-specific).
+  const st = body.view.state?.values || {};
   const profiles = parsedMetaData.profiles || [];
-  const selectedProfile = body.view.state?.values?.profile?.profile?.selected_option?.value || null;
+  const selectedProfile = st.profile?.profile?.selected_option?.value || null;
+  const selectedImage = st.image?.image?.selected_option?.value || null;
+  const envText = st.env_vars?.env_vars?.value || '';
+  const singleClick = st.launchMode?.singleClickExperience?.selected_options?.some(
+    o => o.value === 'single_click_enabled'
+  ) ?? false;
+  const descriptions = [];
+  const cloneRepos = [];
+  for (let i = 1; i <= vmCount; i++) {
+    descriptions.push(st[`description_${i}`]?.[`description_${i}`]?.value || '');
+    cloneRepos.push(st[`clone_repo_${i}`]?.[`clone_repo_${i}`]?.value || '');
+  }
 
   // Update the modal in place
   await client.views.update({
     view_id: body.view.id,
-    view: vmModal({ regions, images, servers, metaData, vmCount, regionStats, selectedRegion, profiles, selectedProfile })
+    view: vmModal({
+      regions, images, servers, metaData, vmCount, regionStats, selectedRegion,
+      profiles, selectedProfile, selectedImage, descriptions, cloneRepos, envText, singleClick
+    })
   });
 }

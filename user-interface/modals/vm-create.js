@@ -1,23 +1,27 @@
 import { Modal, Blocks, Elements, Bits } from 'slack-block-builder';
 
-export default function vmCreateModal({ regions = [], images = [], servers = [], metaData, vmCount = 1, regionStats = null, selectedRegion = null, profiles = [], selectedProfile = null } = {}) {
+export default function vmCreateModal({ regions = [], images = [], servers = [], metaData, vmCount = 1, regionStats = null, selectedRegion = null, profiles = [], selectedProfile = null, selectedImage = null, selectedServer = null, descriptions = [], cloneRepos = [], envText = '', singleClick = false } = {}) {
   const title = vmCount > 1 ? `Create ${vmCount} VMs` : 'Create VM';
 
   // Per-VM fields: each VM gets its own description and repo to clone (different VMs are
   // usually different repos). Region/image/size/env stay shared across the batch.
+  // initialValue re-seeds anything the user already typed when the modal is rebuilt (e.g.
+  // on region change), so switching regions doesn't wipe their input.
   const perVmBlocks = [];
   for (let i = 1; i <= vmCount; i++) {
     const descLabel = vmCount > 1 ? `VM ${i} Description` : 'VM Description';
-    const repoLabel = vmCount > 1 ? `VM ${i} repository to clone` : 'Git repository to clone';
+    const repoLabel = vmCount > 1 ? `VM ${i} repository to clone (BETA)` : 'Git repository to clone (BETA)';
     perVmBlocks.push(
       Blocks.Input({ label: descLabel, blockId: `description_${i}`, optional: true }).element(
         Elements.TextInput({ actionId: `description_${i}` })
           .placeholder('A short description of the VM')
+          .initialValue(descriptions[i - 1] || undefined)
           .maxLength(100)
       ),
       Blocks.Input({ label: repoLabel, blockId: `clone_repo_${i}`, optional: true }).element(
         Elements.TextInput({ actionId: `clone_repo_${i}` })
           .placeholder('owner/repo or https://github.com/owner/repo')
+          .initialValue(cloneRepos[i - 1] || undefined)
           .maxLength(300)
       )
     );
@@ -78,6 +82,11 @@ export default function vmCreateModal({ regions = [], images = [], servers = [],
                 )
               : [Bits.Option({ text: 'No images available', value: 'placeholder' })]
           )
+          .initialOption(
+            selectedImage && images.includes(selectedImage)
+              ? Bits.Option({ text: selectedImage, value: selectedImage })
+              : undefined
+          )
       ),
 
       Blocks.Input({ label: 'Server Type', blockId: 'server' }).element(
@@ -94,21 +103,31 @@ export default function vmCreateModal({ regions = [], images = [], servers = [],
 
       ...perVmBlocks,
 
-      Blocks.Input({ label: 'Environment variables', blockId: 'env_vars', optional: true }).element(
+      Blocks.Input({ label: vmCount > 1 ? `Environment variables (applied to all ${vmCount} VMs)` : 'Environment variables', blockId: 'env_vars', optional: true }).element(
         Elements.TextInput({ actionId: 'env_vars' })
           .multiline(true)
           .placeholder('One per line, KEY=VALUE\nGITHUB_TOKEN=ghp_...\nDATABASE_URL=postgres://...')
+          .initialValue(envText || undefined)
           .maxLength(3000)
       ),
 
       Blocks.Input({ label: 'Launch Mode', blockId: 'launchMode', optional: true }).element(
         Elements.Checkboxes({ actionId: 'singleClickExperience' })
           .options(
-            Bits.Option({ 
-              text: 'Enable Single-Click Experience (BETA)', 
+            Bits.Option({
+              text: 'Enable Single-Click Experience (BETA)',
               value: 'single_click_enabled',
               description: 'One-click access to your Cloud Development Environment (BETA)'
             })
+          )
+          .initialOptions(
+            singleClick
+              ? [Bits.Option({
+                  text: 'Enable Single-Click Experience (BETA)',
+                  value: 'single_click_enabled',
+                  description: 'One-click access to your Cloud Development Environment (BETA)'
+                })]
+              : undefined
           )
       )
     )

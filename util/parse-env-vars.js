@@ -37,7 +37,10 @@ export default function parseEnvVars(text) {
         }
 
         const key = line.slice(0, eq).trim();
-        const value = line.slice(eq + 1); // value kept as typed; trimmed downstream
+        // Strip one layer of matching surrounding quotes, so a value copy-pasted from an
+        // existing .env file (KEY="ghp_x" / KEY='...') doesn't carry the quotes into the
+        // CDE (docker --env-file treats them as literal characters).
+        const value = stripQuotes(line.slice(eq + 1));
 
         if (!KEY_RE.test(key)) {
             errors.push(`Line ${lineNo}: invalid key "${key}" (use letters, digits, underscore; not starting with a digit)`);
@@ -52,4 +55,15 @@ export default function parseEnvVars(text) {
     }
 
     return { env, errors };
+}
+
+// Remove a single layer of matching surrounding quotes. The inner text is returned as-is
+// (spaces inside quotes are intentional); unquoted values are returned untouched and get
+// trimmed downstream in get-user-data.js.
+function stripQuotes(value) {
+    const t = value.trim();
+    if (t.length >= 2 && ((t[0] === '"' && t.at(-1) === '"') || (t[0] === "'" && t.at(-1) === "'"))) {
+        return t.slice(1, -1);
+    }
+    return value;
 }

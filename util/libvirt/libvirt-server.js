@@ -10,7 +10,7 @@ import { randomBytes } from 'crypto';
 const log = logger();
 
 export default {
-    createServer: async({ client, body, imageName, region, instanceType, description, channel_id, singleClickExperience, userEnv = {}, cloneRepo = null, profileName = null }) => {
+    createServer: async({ client, body, imageName, region, instanceType, description, channel_id, singleClickExperience, userEnv = {}, cloneRepo = null, profileName = null, batch = false }) => {
         //auto generate the name
         const serverName = uniqueNamesGenerator({
             dictionaries: [ colors, animals ],
@@ -29,24 +29,28 @@ export default {
         } catch (error) {
             log.error('There was an error calling the user.info method in slack', error);
 
-            await client.chat.postEphemeral({
-            channel: channel_id,
-            user: body.user.id,
-            text: `Failed to get user info from slack`
-            });
+            if (!batch) {
+                await client.chat.postEphemeral({
+                channel: channel_id,
+                user: body.user.id,
+                text: `Failed to get user info from slack`
+                });
+            }
 
-            return;
+            return { success: false, serverName, description: description || 'No description' };
         }
-    
+
         const userEmail = info.user.profile.email;
         const descriptionText = description || 'No description';
 
-        //post a status message
-        await client.chat.postEphemeral({
-            channel: channel_id,
-            user: body.user.id,
-            text: `Creating the server: ${serverName} with image: ${imageName}\nDescription: ${descriptionText}`
-        });
+        //post a status message (suppressed in batch — the batch summary is the single source of truth)
+        if (!batch) {
+            await client.chat.postEphemeral({
+                channel: channel_id,
+                user: body.user.id,
+                text: `Creating the server: ${serverName} with image: ${imageName}\nDescription: ${descriptionText}`
+            });
+        }
 
         // Build tags object, including CDE token if enabled
         const tags = {
@@ -88,11 +92,13 @@ export default {
         } catch (error) {
             log.error('There was an error creating the server', axiosError(error));
 
-            await client.chat.postEphemeral({
-            channel: channel_id,
-            user: body.user.id,
-            text: `Failed to create server: ${serverName}\nDescription: ${descriptionText}`
-            });
+            if (!batch) {
+                await client.chat.postEphemeral({
+                channel: channel_id,
+                user: body.user.id,
+                text: `Failed to create server: ${serverName}\nDescription: ${descriptionText}`
+                });
+            }
 
             return { success: false, serverName, description: descriptionText };
         }
@@ -115,11 +121,13 @@ export default {
         responseText += `\nAccess: <${accessUrl}|${accessLabel}>`;
         responseText += `\n\n_Note: It may take up to 60 seconds for the server to be accessible as it has just been created._`;
 
-        await client.chat.postEphemeral({
-            channel: channel_id,
-            user: body.user.id,
-            text: responseText
-        });
+        if (!batch) {
+            await client.chat.postEphemeral({
+                channel: channel_id,
+                user: body.user.id,
+                text: responseText
+            });
+        }
 
         return { success: true, serverName, description: descriptionText, accessUrl, accessLabel, cloneRepo };
     },
