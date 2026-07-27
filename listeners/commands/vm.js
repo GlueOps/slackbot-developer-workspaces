@@ -3,7 +3,7 @@ import vmCreateModal from '../../user-interface/modals/vm-create.js';
 import vmProfileModal from '../../user-interface/modals/vm-profile.js';
 import buttonBuilder from '../../util/button-builder.js';
 import { formatCreatedDate, sortByCreatedAtAsc } from '../../util/format-date.js';
-import { profilesEnabled, listProfiles, deleteProfile } from '../../util/profile-store.js';
+import { listProfiles, deleteProfile } from '../../util/profile-store.js';
 import 'dotenv/config';
 import axios from 'axios';
 import logger from '../../util/logger.js';
@@ -135,16 +135,14 @@ export default {
           ? regions.filter(r => r.available_instance_types?.some(t => t.memory_mb <= MAX_VM_RAM_MB))
           : regions;
 
-        // Load the user's saved profiles for the picker. Best-effort: a failure (or the
-        // feature being disabled) just yields no picker, never blocks creation.
+        // Load the user's saved profiles for the picker. Best-effort: a failure just
+        // yields no picker, never blocks creation.
         let profileNames = [];
-        if (profilesEnabled()) {
-          try {
-            const info = await app.client.users.info({ user: event.user_id });
-            profileNames = Object.keys(await listProfiles(info.user.profile.email)).sort();
-          } catch (error) {
-            log.error('Failed to load profiles for create modal', error);
-          }
+        try {
+          const info = await app.client.users.info({ user: event.user_id });
+          profileNames = Object.keys(await listProfiles(info.user.profile.email)).sort();
+        } catch (error) {
+          log.error('Failed to load profiles for create modal', error);
         }
 
         await app.client.views.update({
@@ -365,14 +363,6 @@ export default {
       break;
     }
     case 'profile': {
-      if (!profilesEnabled()) {
-        await app.client.chat.postEphemeral({
-          channel: event.channel_id, user: event.user_id,
-          text: 'Profiles are not configured on this bot.'
-        });
-        return;
-      }
-
       const sub = args[1];
 
       // Open the create/update modal

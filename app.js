@@ -4,8 +4,12 @@ import registerListeners from './listeners/index.js';
 import 'dotenv/config';
 import server from './app-server.js';
 import logger from './util/logger.js';
+import { requireProfilesConfig } from './util/profile-store.js';
 
 const log = logger();
+
+// Fail fast if the (required) profiles S3 configuration is missing.
+requireProfilesConfig();
 
 //custom logger for bolt app
 const customLogger = {

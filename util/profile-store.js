@@ -10,9 +10,10 @@
     edits by the same user (rare — one person, a few profiles) could race; acceptable
     for this workload and avoids standing up a locking layer.
 
-    The feature is OPTIONAL: with no bucket configured, `profilesEnabled()` is false and
-    the UI simply omits the profile picker. Repo-to-clone is deliberately NOT stored —
-    it's per-create (see vm-create flow).
+    The S3 configuration is REQUIRED — `requireProfilesConfig()` is called at startup and
+    throws if any of it is missing, so a misconfigured deploy fails fast instead of
+    erroring on first use. Repo-to-clone is deliberately NOT stored — it's per-create
+    (see vm-create flow).
 */
 import { S3Client, GetObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
 import logger from './logger.js';
@@ -45,8 +46,23 @@ function getClient() {
     return client;
 }
 
-export function profilesEnabled() {
-    return Boolean(BUCKET && REGION);
+// Required S3 configuration. Credentials fall back to the default AWS provider chain, so
+// the explicit key pair is required too (this deployment supplies static keys).
+const REQUIRED_ENV = [
+    'PROFILES_S3_ENDPOINT',
+    'PROFILES_S3_BUCKET',
+    'PROFILES_S3_REGION',
+    'PROFILES_S3_ACCESS_KEY_ID',
+    'PROFILES_S3_SECRET_ACCESS_KEY',
+];
+
+// Throws if any required S3 config is missing. Call once at startup so a misconfigured
+// deploy fails immediately with a clear message.
+export function requireProfilesConfig() {
+    const missing = REQUIRED_ENV.filter(k => !process.env[k]);
+    if (missing.length > 0) {
+        throw new Error(`Missing required profiles S3 configuration: ${missing.join(', ')}`);
+    }
 }
 
 // Email is URL-encoded so characters like '+' in a plus-addressed address can't produce

@@ -1,6 +1,6 @@
 import libvirt from '../../util/libvirt/libvirt-server.js';
 import parseEnvVars from '../../util/parse-env-vars.js';
-import { profilesEnabled, getProfile } from '../../util/profile-store.js';
+import { getProfile } from '../../util/profile-store.js';
 import logger from '../../util/logger.js';
 
 const log = logger();
@@ -40,7 +40,7 @@ export default async function vmCreateModalCallback({ ack, view, body, client })
   const selectedProfile = values.profile?.profile?.selected_option?.value || null;
   let finalEnv = userEnv;
   let profileName = null;
-  if (selectedProfile && profilesEnabled()) {
+  if (selectedProfile) {
     try {
       const info = await client.users.info({ user: body.user.id });
       const profile = await getProfile(info.user.profile.email, selectedProfile);
