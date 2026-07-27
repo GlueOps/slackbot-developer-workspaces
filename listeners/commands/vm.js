@@ -162,6 +162,7 @@ export default {
         for (const server of servers) {
           const description = server.tags.description || 'No description provided';
           const cdeToken = server.tags.cde_token || null;
+          const cloneRepo = server.tags.clone_repo || null;
           const createdDate = formatCreatedDate(server.tags.created_at);
           const buttonsArray = [
               { text: "Start", actionId: `button_start_libvirt`, value: JSON.stringify({ serverName: server.serverName, region: server.region }) },
@@ -172,6 +173,9 @@ export default {
 
           // Build header text with optional CDE URL
           let headerText = `Server: ${server.serverName}\nRegion: ${server.region}\nDescription: ${description}\nStatus: ${server.status}\nCreated: ${createdDate}`;
+          if (cloneRepo) {
+              headerText += `\nRepo: ${cloneRepo}`;
+          }
           if (cdeToken) {
               const cdeUrl = `https://cde-${server.serverName}.tunnels.glueopshosted.com?folder=/workspaces/glueops&tkn=${cdeToken}`;
               headerText += `\nAccess: <${cdeUrl}|Cloud Development Environment>`;

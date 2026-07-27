@@ -53,7 +53,8 @@ export default {
             "owner": userEmail,
             "description": description || '',
             "created_at": new Date().toISOString(),
-            ...(cdeToken && { "cde_token": cdeToken })
+            ...(cdeToken && { "cde_token": cdeToken }),
+            ...(cloneRepo && { "clone_repo": cloneRepo })
         };
 
         let serverRes;
@@ -110,6 +111,9 @@ export default {
         if (profileName) {
             responseText += `\nProfile: ${profileName}`;
         }
+        if (cloneRepo) {
+            responseText += `\nRepo: ${cloneRepo}`;
+        }
         responseText += `\nAccess: <${accessUrl}|${accessLabel}>`;
         responseText += `\n\n_Note: It may take up to 60 seconds for the server to be accessible as it has just been created._`;
 
@@ -119,7 +123,7 @@ export default {
             text: responseText
         });
 
-        return { success: true, serverName, description: descriptionText, accessUrl, accessLabel };
+        return { success: true, serverName, description: descriptionText, accessUrl, accessLabel, cloneRepo };
     },
 
     deleteServer: async ({ app, body, serverName, region }) => {

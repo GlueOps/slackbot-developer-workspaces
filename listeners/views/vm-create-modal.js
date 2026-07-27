@@ -97,7 +97,8 @@ export default async function vmCreateModalCallback({ ack, view, body, client })
     const lines = [];
     lines.push(`*Batch VM Creation Complete: ${succeeded.length}/${vmCount} succeeded*`);
     for (const vm of succeeded) {
-      lines.push(`✅ ${vm.serverName} — ${vm.description} — <${vm.accessUrl}|${vm.accessLabel}>`);
+      const repoNote = vm.cloneRepo ? ` — repo: ${vm.cloneRepo}` : '';
+      lines.push(`✅ ${vm.serverName} — ${vm.description}${repoNote} — <${vm.accessUrl}|${vm.accessLabel}>`);
     }
     for (const vm of failed) {
       lines.push(`❌ ${vm.serverName} — Failed to create`);
