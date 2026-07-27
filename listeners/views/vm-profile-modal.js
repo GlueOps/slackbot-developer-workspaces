@@ -8,12 +8,16 @@ const log = logger();
 // Validates name + env before acking so problems surface inline, then writes to S3.
 export default async function vmProfileModalCallback({ ack, view, body, client }) {
   const values = view.state.values;
-  const name = (values.profile_name?.profile_name?.value || '').trim();
+  const meta = JSON.parse(view.private_metadata || '{}');
+  // When editing, the name is locked and carried in private_metadata (there's no name
+  // input in the view). When creating, it comes from the input field.
+  const editing = Boolean(meta.name);
+  const name = (editing ? meta.name : (values.profile_name?.profile_name?.value || '')).trim();
   const envText = values.env_vars?.env_vars?.value || '';
 
   const { env, errors: envErrors } = parseEnvVars(envText);
   const errors = {};
-  if (!name) errors.profile_name = 'Please enter a profile name.';
+  if (!editing && !name) errors.profile_name = 'Please enter a profile name.';
   if (envErrors.length > 0) errors.env_vars = envErrors.join('  •  ').slice(0, 1900);
   if (Object.keys(errors).length > 0) {
     await ack({ response_action: 'errors', errors });
@@ -21,7 +25,7 @@ export default async function vmProfileModalCallback({ ack, view, body, client }
   }
   await ack();
 
-  const channel = JSON.parse(view.private_metadata || '{}').channel_id;
+  const channel = meta.channel_id;
 
   let email;
   try {
