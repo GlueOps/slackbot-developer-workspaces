@@ -65,10 +65,7 @@ export default {
                     "user_data": Buffer.from(configUserData(serverName, cdeToken, {
                         SERVER_NAME: serverName,
                         REGION: region,
-                        // Strip the transient ` (Over Allocated)` annotation so the VM
-                        // records the canonical instance type, not a scheduling condition.
-                        // Only affects the env file; the raw value is still sent to /v1/create.
-                        INSTANCE_TYPE: String(instanceType).replace(/\s*\(Over Allocated\)\s*$/, ''),
+                        INSTANCE_TYPE: instanceType,
                         IMAGE: imageName,
                         OWNER: userEmail,
                         CREATED_AT: tags.created_at
