@@ -1,6 +1,9 @@
 import axios from 'axios';
 import vmModal from '../../user-interface/modals/vm-create.js';
+import logger from '../../util/logger.js';
+import axiosError from '../../util/axios-error-handler.js';
 
+const log = logger();
 const MAX_VM_RAM_MB = 9216;
 
 export default async function vmRegionCallback({ ack, body, client }) {
@@ -11,6 +14,10 @@ export default async function vmRegionCallback({ ack, body, client }) {
   const parsedMetaData = JSON.parse(metaData);
   const vmCount = parsedMetaData.vmCount || 1;
 
+  // Loading placeholder while region data is refetched. Deliberately NO submit button: the
+  // create handler expects region/image/server blocks that this view doesn't have, so a
+  // Submit here would throw before ack. The full modal (with submit) returns via the
+  // views.update below once the data loads.
   await client.views.update({
     view_id: body.view.id,
     view: {
@@ -18,7 +25,6 @@ export default async function vmRegionCallback({ ack, body, client }) {
       callback_id: 'vm-create-modal',
       private_metadata: metaData,
       title: { type: 'plain_text', text: vmCount > 1 ? `Create ${vmCount} VMs` : 'Create VM' },
-      submit: { type: 'plain_text', text: 'Submit' },
       blocks: [
         {
           type: 'section',
@@ -37,7 +43,9 @@ export default async function vmRegionCallback({ ack, body, client }) {
       axios.get(`${process.env.PROVISIONER_URL}/v1/get-images`)
     ]);
   } catch (error) {
-    console.error('Error fetching regions/images in region callback:', error);
+    // Route through the redacting logger (not console.error) and strip the axios config
+    // so the provisioner token in the request headers never reaches the logs.
+    log.error('Error fetching regions/images in region callback:', axiosError(error));
     await client.views.update({
       view_id: body.view.id,
       view: {

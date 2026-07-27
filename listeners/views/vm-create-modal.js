@@ -15,14 +15,16 @@ export default async function vmCreateModalCallback({ ack, view, body, client })
   // (keyed by block_id) rather than being silently dropped.
   const errors = {};
 
-  const selectedRegion = values.region.region.selected_option.value;
-  const selectedImage = values.image.image.selected_option.value;
-  const selectedServer = values.server.server.selected_option.value;
-  // Guard the placeholder options that appear when a list is empty ("Select a region
-  // first", "No images available") from being submitted to the provisioner.
-  if (selectedRegion === 'placeholder') errors.region = 'Please select a region.';
-  if (selectedImage === 'placeholder') errors.image = 'Please select an image.';
-  if (selectedServer === 'placeholder') errors.server = 'Please pick a region first, then a server type.';
+  // Optional-chain every read: if this fires against a transient loading/error view (which
+  // has none of these blocks), a bare `.selected_option.value` would throw before ack.
+  const selectedRegion = values.region?.region?.selected_option?.value;
+  const selectedImage = values.image?.image?.selected_option?.value;
+  const selectedServer = values.server?.server?.selected_option?.value;
+  // Guard both the placeholder options that appear when a list is empty ("Select a region
+  // first", "No images available") and a missing selection from reaching the provisioner.
+  if (!selectedRegion || selectedRegion === 'placeholder') errors.region = 'Please select a region.';
+  if (!selectedImage || selectedImage === 'placeholder') errors.image = 'Please select an image.';
+  if (!selectedServer || selectedServer === 'placeholder') errors.server = 'Please pick a region first, then a server type.';
 
   const { env: userEnv, errors: envErrors } = parseEnvVars(values.env_vars?.env_vars?.value || '');
   if (envErrors.length > 0) errors.env_vars = envErrors.join('  •  ').slice(0, 1900);
@@ -49,22 +51,37 @@ export default async function vmCreateModalCallback({ ack, view, body, client })
     opt => opt.value === 'single_click_enabled'
   ) ?? false;
 
-  // If a profile was picked, merge its env under what the user typed (typed wins). Any
-  // failure to load the profile degrades to "just the typed env" rather than blocking.
+  // If a profile was picked, merge its env under what the user typed (typed wins). A
+  // profile that can't be loaded ABORTS creation — we never create a VM that's silently
+  // missing the secrets the developer selected. Invariant: VM created + profile selected
+  // ⟹ profile applied.
   const selectedProfile = values.profile?.profile?.selected_option?.value || null;
   let finalEnv = userEnv;
   let profileName = null;
   if (selectedProfile) {
+    let profile;
     try {
       const info = await client.users.info({ user: body.user.id });
-      const profile = await getProfile(info.user.profile.email, selectedProfile);
-      if (profile?.env) {
-        finalEnv = { ...profile.env, ...userEnv };
-        profileName = selectedProfile;
-      }
+      profile = await getProfile(info.user.profile.email, selectedProfile);
     } catch (err) {
-      log.error('create: failed to apply profile, continuing with typed env only', err);
+      log.error('create: failed to load selected profile; aborting VM creation', err);
+      await client.chat.postEphemeral({
+        channel: metaData.channel_id,
+        user: body.user.id,
+        text: `❌ Couldn't load profile *${selectedProfile}* (storage error) — no VM was created. Please try again.`
+      });
+      return;
     }
+    if (!profile?.env) {
+      await client.chat.postEphemeral({
+        channel: metaData.channel_id,
+        user: body.user.id,
+        text: `❌ Profile *${selectedProfile}* no longer exists — no VM was created.`
+      });
+      return;
+    }
+    finalEnv = { ...profile.env, ...userEnv };
+    profileName = selectedProfile;
   }
 
   if (vmCount === 1) {

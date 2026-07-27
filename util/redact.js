@@ -5,18 +5,24 @@
     provisioner error echo (axios-error-handler.js surfaces response bodies verbatim).
 
     Intentionally aggressive: over-redacting a field in an error log is acceptable; leaking
-    a secret is not.
+    a secret is not. Two defensive choices worth calling out:
+      - It returns a redacted COPY and never mutates the caller's object — logging a live
+        object (e.g. VM tags) must not blank that object's fields in the running app.
+      - It fails CLOSED: past MAX_DEPTH, or on any value it can't safely walk, it redacts
+        rather than passing raw data through.
 */
 
 // Redact any value whose key name contains one of these (case-insensitive)...
 const SENSITIVE_SUBSTRINGS = [
-    'secret', 'password', 'passwd', 'token', 'apikey', 'api_key', 'authkey',
+    'secret', 'password', 'passwd', 'token', 'apikey', 'api_key', 'access_key', 'authkey',
     'authorization', 'credential', 'user_data', 'userdata', 'encryption_key',
     'tailscale', 'provisioner_api', 'env', 'value', 'input', 'private',
+    'header', 'request', 'setup_script',
 ];
 
-// ...and any string that looks like a long base64 blob (e.g. an echoed user_data payload).
-const BASE64_BLOB = /^[A-Za-z0-9+/=\s]{120,}$/;
+// ...and any run that looks like a long base64 blob (e.g. an echoed user_data payload),
+// wherever it appears in a string — not just when the whole string is base64.
+const BASE64_BLOB = /[A-Za-z0-9+/]{120,}={0,2}/g;
 const REDACTED = '[REDACTED]';
 const MAX_DEPTH = 8;
 
@@ -25,19 +31,29 @@ function isSensitiveKey(key) {
     return SENSITIVE_SUBSTRINGS.some(s => k.includes(s));
 }
 
-// Mutates `obj` in place, redacting sensitive fields. Circular- and depth-safe so it can't
-// hang or overflow on a pathological log payload. Returns obj.
-export default function redactSensitive(obj, seen = new WeakSet(), depth = 0) {
-    if (!obj || typeof obj !== 'object' || seen.has(obj) || depth > MAX_DEPTH) return obj;
-    seen.add(obj);
-    for (const [key, value] of Object.entries(obj)) {
-        if (isSensitiveKey(key)) {
-            obj[key] = REDACTED;
-        } else if (typeof value === 'string') {
-            if (BASE64_BLOB.test(value)) obj[key] = REDACTED;
-        } else if (value && typeof value === 'object') {
-            redactSensitive(value, seen, depth + 1);
-        }
+function scrubString(str) {
+    return str.replace(BASE64_BLOB, REDACTED);
+}
+
+// Returns a redacted copy of `obj`. Circular-safe (via a WeakMap of original→copy) and
+// depth-safe. Does not mutate the input.
+export default function redactSensitive(obj, seen = new WeakMap(), depth = 0) {
+    if (typeof obj === 'string') return scrubString(obj);
+    if (!obj || typeof obj !== 'object') return obj;   // numbers, booleans, null, functions
+    if (depth > MAX_DEPTH) return REDACTED;            // fail closed rather than pass through
+    if (seen.has(obj)) return seen.get(obj);
+
+    if (Array.isArray(obj)) {
+        const out = [];
+        seen.set(obj, out);
+        for (const item of obj) out.push(redactSensitive(item, seen, depth + 1));
+        return out;
     }
-    return obj;
+
+    const out = {};
+    seen.set(obj, out);
+    for (const [key, value] of Object.entries(obj)) {
+        out[key] = isSensitiveKey(key) ? REDACTED : redactSensitive(value, seen, depth + 1);
+    }
+    return out;
 }

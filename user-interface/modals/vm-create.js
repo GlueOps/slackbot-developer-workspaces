@@ -1,25 +1,30 @@
 import { Modal, Blocks, Elements, Bits } from 'slack-block-builder';
 
 // Pre-seeded into the env-vars textarea on first open (GlueOps-specific, hardcoded).
-// Recommended keys with blank values (parse-env-vars.js drops blanks, so unfilled ones
-// are ignored) plus a self-documenting CDE_SETUP_SCRIPT default. `#` lines are comments,
-// ignored on submit — they're just guidance.
+// Everything here is either a comment (`#`, ignored on submit) or a blank `KEY=` slot
+// (parse-env-vars.js drops blanks). Deliberately NO line sets a value: a value-bearing
+// default would win over a selected profile in the create merge ({...profile, ...typed})
+// and silently clobber the profile's own version of that key. So AutoGlue URLs and
+// CDE_SETUP_SCRIPT are shown commented-out — the defaults live on the VM (cde-init /
+// cde-boot), and the dev opts in by uncommenting.
 const DEFAULT_ENV_TEXT = [
   '# Fill in what you need; blank lines are ignored.',
   '# GITHUB_TOKEN — required for PRIVATE repo clones and gh auth; public repos work without it.',
   'GITHUB_TOKEN=',
-  '# AutoGlue SSH (gluekube_ssh): URLs prefilled; add a token to auto-create that profile.',
-  'GLUEKUBE_SSH_AUTOGLUE_PROD_URL=https://autoglue.glueopshosted.com/api/v1',
-  'GLUEKUBE_SSH_AUTOGLUE_NONPROD_URL=https://autoglue.glueopshosted.rocks/api/v1',
+  '# AutoGlue SSH (gluekube_ssh): to auto-create a profile, UNCOMMENT its URL and set its token',
+  '# (both are required — cde-init seeds nothing unless the URL and token are both present).',
+  '# GLUEKUBE_SSH_AUTOGLUE_PROD_URL=https://autoglue.glueopshosted.com/api/v1',
+  '# GLUEKUBE_SSH_AUTOGLUE_NONPROD_URL=https://autoglue.glueopshosted.rocks/api/v1',
   'GLUEKUBE_SSH_AUTOGLUE_PROD_TOKEN=',
   'GLUEKUBE_SSH_AUTOGLUE_NONPROD_TOKEN=',
-  '# CDE_SETUP_SCRIPT runs when your CDE starts:',
-  '#   cde-init          = default: gh auth + clone your repo + set up AutoGlue',
+  '# CDE_SETUP_SCRIPT runs when your CDE starts. Leave it unset (below stays commented) and',
+  "# the default bootstrap `cde-init` runs (gh auth + clone your repo + set up AutoGlue).",
+  '# Uncomment + change it to override:',
   '#   <a command>       = run it instead, e.g.  curl setup.example.com | zsh',
   '#   base64:<encoded>  = a complex/multi-line script  (<script> | base64 -w0)',
   '#                       e.g.  base64:Y2RlLWluaXQ=  decodes to  cde-init',
-  '#   (blank)           = skip setup',
-  'CDE_SETUP_SCRIPT=cde-init',
+  '#   true              = skip setup entirely',
+  '# CDE_SETUP_SCRIPT=cde-init',
 ].join('\n');
 
 // `envText` is undefined on first open → pre-seed DEFAULT_ENV_TEXT. On a region re-render,

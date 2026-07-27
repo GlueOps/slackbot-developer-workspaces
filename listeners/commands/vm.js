@@ -7,12 +7,28 @@ import { listProfiles, getProfile, deleteProfile } from '../../util/profile-stor
 import 'dotenv/config';
 import axios from 'axios';
 import logger from '../../util/logger.js';
+import axiosError from '../../util/axios-error-handler.js';
 import vmEditModal from '../../user-interface/modals/vm-edit.js';
 
 const log = logger();
 
 const MAX_VM_COUNT = 10;
 const MAX_VM_RAM_MB = 9216;
+
+// Placeholder modals for the Edit/Copy flow: we must claim the (~3s) trigger_id with an
+// immediate views.open, then views.update in the real content once the S3 read finishes —
+// otherwise a slow profile fetch lets the trigger expire and the modal never opens. These
+// carry no submit/callback_id, so they can't be accidentally submitted.
+const profileLoadingView = () => ({
+  type: 'modal',
+  title: { type: 'plain_text', text: 'Loading…' },
+  blocks: [{ type: 'section', text: { type: 'plain_text', text: 'Fetching profile…' } }],
+});
+const profileErrorView = (text) => ({
+  type: 'modal',
+  title: { type: 'plain_text', text: 'Profile' },
+  blocks: [{ type: 'section', text: { type: 'plain_text', text } }],
+});
 
 export default {
   description: 'Sets up vm options',
@@ -62,30 +78,60 @@ export default {
         });
     } else if (actionId === 'button_profile_edit') {
         const { name } = JSON.parse(body.actions[0].value);
+        // Claim the trigger with a loading modal before the S3 read (see profileLoadingView).
+        let loading;
+        try {
+          loading = await app.client.views.open({ trigger_id: body.trigger_id, view: profileLoadingView() });
+        } catch (error) {
+          log.error('Failed to open loading modal for profile edit', error);
+          return;
+        }
         try {
           const info = await app.client.users.info({ user: body.user.id });
           const profile = await getProfile(info.user.profile.email, name);
-          const envText = profile?.env
-            ? Object.entries(profile.env).map(([k, v]) => `${k}=${v}`).join('\n')
-            : '';
-          await app.client.views.open({
-            trigger_id: body.trigger_id,
+          if (!profile?.env) {
+            // Deleted since the list rendered — do NOT open an empty editor; saving it
+            // would resurrect an empty profile under that name.
+            await app.client.views.update({
+              view_id: loading.view.id,
+              view: profileErrorView(`Profile "${name}" no longer exists. Close this and refresh your profile list.`)
+            });
+            return;
+          }
+          const envText = Object.entries(profile.env).map(([k, v]) => `${k}=${v}`).join('\n');
+          await app.client.views.update({
+            view_id: loading.view.id,
             view: vmProfileModal({ name, envText, metaData: JSON.stringify({ channel_id: body.channel.id, name }) })
           });
         } catch (error) {
           log.error('Failed to open profile for editing', error);
-          await app.client.chat.postEphemeral({ channel: body.channel.id, user: body.user.id, text: `Failed to open profile: ${name}` });
+          await app.client.views.update({
+            view_id: loading.view.id,
+            view: profileErrorView(`Failed to open profile: ${name}. Please try again.`)
+          }).catch(() => {});
         }
     } else if (actionId === 'button_profile_copy') {
         const { name } = JSON.parse(body.actions[0].value);
+        let loading;
+        try {
+          loading = await app.client.views.open({ trigger_id: body.trigger_id, view: profileLoadingView() });
+        } catch (error) {
+          log.error('Failed to open loading modal for profile copy', error);
+          return;
+        }
         try {
           const info = await app.client.users.info({ user: body.user.id });
           const profile = await getProfile(info.user.profile.email, name);
-          const envText = profile?.env
-            ? Object.entries(profile.env).map(([k, v]) => `${k}=${v}`).join('\n')
-            : '';
-          await app.client.views.open({
-            trigger_id: body.trigger_id,
+          if (!profile?.env) {
+            await app.client.views.update({
+              view_id: loading.view.id,
+              view: profileErrorView(`Profile "${name}" no longer exists. Close this and refresh your profile list.`)
+            });
+            return;
+          }
+          const envText = Object.entries(profile.env).map(([k, v]) => `${k}=${v}`).join('\n');
+          await app.client.views.update({
+            view_id: loading.view.id,
             // Copy = a new profile pre-filled from the source, with an EDITABLE name (no
             // `name` in metaData). Suggests "<source>-copy"; the dev renames + saves. Also
             // serves as rename (copy then delete the original).
@@ -93,7 +139,10 @@ export default {
           });
         } catch (error) {
           log.error('Failed to copy profile', error);
-          await app.client.chat.postEphemeral({ channel: body.channel.id, user: body.user.id, text: `Failed to copy profile: ${name}` });
+          await app.client.views.update({
+            view_id: loading.view.id,
+            view: profileErrorView(`Failed to copy profile: ${name}. Please try again.`)
+          }).catch(() => {});
         }
     } else if (actionId === 'button_profile_delete') {
         const { name } = JSON.parse(body.actions[0].value);
@@ -154,7 +203,9 @@ export default {
             axios.get(`${process.env.PROVISIONER_URL}/v1/get-images`)
           ]);
       } catch (error) {
-        log.error('Error fetching regions or images:', error);
+        // Normalise first: the raw axios error carries config.headers.Authorization
+        // (the provisioner token) — axiosError() drops it, keeping only data/status/message.
+        log.error('Error fetching regions or images:', axiosError(error));
         await app.client.chat.postEphemeral({
           channel: event.channel_id,
           user: event.user_id,
