@@ -140,7 +140,7 @@ These are load-bearing. Do not change without understanding the impact.
      (profile names also stashed in privateMetaData so the picker survives re-render)
 
 Modal fields: [profile picker if any] · region · [Proxmox stats] · image · server type
-              · per-VM {description, repo (BETA)} · shared env-vars textarea · single-click
+              · per-VM {description, repo} · shared env-vars textarea · single-click
 
 User selects a region (dispatch action fires)
   → vm-region.js: re-fetches /v1/regions + /v1/get-images

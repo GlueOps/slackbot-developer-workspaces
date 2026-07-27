@@ -81,7 +81,7 @@ You can find an example ACL file in this [repo](tailscale-acls.json).
 When creating a VM, developers can:
 
 - **Set environment variables** — a `KEY=VALUE` textarea in the create modal, written verbatim into the VM's `/etc/glueops/codespace.env`.
-- **Clone a GitHub repo** — a per-VM field accepting `owner/repo`, `github.com/owner/repo`, or a full/`.git`/browser URL (normalised to a canonical clone URL). *(Labelled BETA until the [codespaces](https://github.com/glueops/codespaces) image clones it at boot.)*
+- **Clone a GitHub repo** — a per-VM field accepting `owner/repo`, `github.com/owner/repo`, or a full/`.git`/browser URL (normalised to a canonical clone URL).
 - **Apply a profile** — a saved, reusable bundle of env vars. Manage profiles with `/vm profile` (list), `/vm profile new`, `/vm profile delete <name>`, and the **Edit**/**Delete** buttons. Picking a profile at create time merges its env under anything typed (typed wins).
 
 ### Profiles storage & encryption
