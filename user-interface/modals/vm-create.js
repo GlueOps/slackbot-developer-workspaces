@@ -1,25 +1,29 @@
 import { Modal, Blocks, Elements, Bits } from 'slack-block-builder';
 
 // Pre-seeded into the env-vars textarea on first open (GlueOps-specific, hardcoded).
-// Everything here is either a comment (`#`, ignored on submit) or a blank `KEY=` slot
-// (parse-env-vars.js drops blanks). Deliberately NO line sets a value: a value-bearing
+// EVERY line is a comment — nothing here sets a value. That's deliberate: a value-bearing
 // default would win over a selected profile in the create merge ({...profile, ...typed})
-// and silently clobber the profile's own version of that key. So AutoGlue URLs and
-// CDE_SETUP_SCRIPT are shown commented-out — the defaults live on the VM (cde-init /
-// cde-boot), and the dev opts in by uncommenting.
+// and silently clobber the profile's own version of that key. The recommended keys are
+// shown commented-out (AutoGlue URL defaults visible, grouped by environment); a dev opts
+// in by uncommenting, and the runtime defaults live on the VM (cde-init / cde-boot).
 const DEFAULT_ENV_TEXT = [
-  '# Fill in what you need; blank lines are ignored.',
+  '# Uncomment a line (remove the leading "# ") and set its value to use it.',
+  '# Blank lines and comments are ignored.',
+  '#',
   '# GITHUB_TOKEN — required for PRIVATE repo clones and gh auth; public repos work without it.',
-  'GITHUB_TOKEN=',
-  '# AutoGlue SSH (gluekube_ssh): to auto-create a profile, UNCOMMENT its URL and set its token',
-  '# (both are required — cde-init seeds nothing unless the URL and token are both present).',
+  '# GITHUB_TOKEN=',
+  '#',
+  '# AutoGlue SSH (gluekube_ssh): to auto-create a profile, uncomment BOTH its URL and token',
+  '# (a profile is seeded only when the URL and token are both set).',
+  '#   prod:',
   '# GLUEKUBE_SSH_AUTOGLUE_PROD_URL=https://autoglue.glueopshosted.com/api/v1',
+  '# GLUEKUBE_SSH_AUTOGLUE_PROD_TOKEN=',
+  '#   nonprod:',
   '# GLUEKUBE_SSH_AUTOGLUE_NONPROD_URL=https://autoglue.glueopshosted.rocks/api/v1',
-  'GLUEKUBE_SSH_AUTOGLUE_PROD_TOKEN=',
-  'GLUEKUBE_SSH_AUTOGLUE_NONPROD_TOKEN=',
-  '# CDE_SETUP_SCRIPT runs when your CDE starts. Leave it unset (below stays commented) and',
-  "# the default bootstrap `cde-init` runs (gh auth + clone your repo + set up AutoGlue).",
-  '# Uncomment + change it to override:',
+  '# GLUEKUBE_SSH_AUTOGLUE_NONPROD_TOKEN=',
+  '#',
+  '# CDE_SETUP_SCRIPT runs at CDE start. Left unset, the default bootstrap `cde-init` runs',
+  '# (gh auth + clone your repo + set up AutoGlue). Uncomment + change it to override:',
   '#   <a command>       = run it instead, e.g.  curl setup.example.com | zsh',
   '#   base64:<encoded>  = a complex/multi-line script  (<script> | base64 -w0)',
   '#                       e.g.  base64:Y2RlLWluaXQ=  decodes to  cde-init',
