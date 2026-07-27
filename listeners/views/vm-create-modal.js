@@ -108,8 +108,11 @@ export default async function vmCreateModalCallback({ ack, view, body, client })
       lines.push(`✅ ${vm.serverName} — ${vm.description || 'No description'} — repo: ${vm.cloneRepo || 'None'} — <${vm.accessUrl}|${vm.accessLabel}>`);
     }
     for (const vm of failed) {
-      const label = vm.serverName && vm.serverName !== 'unknown' ? vm.serverName : (vm.description || 'VM');
-      lines.push(`❌ ${label} — ${vm.description || 'No description'} — Failed to create`);
+      // When the server name is known, show "name — description"; otherwise just the
+      // description (avoid printing the same fallback text twice).
+      const named = vm.serverName && vm.serverName !== 'unknown';
+      const label = named ? `${vm.serverName} — ${vm.description || 'No description'}` : (vm.description || 'VM');
+      lines.push(`❌ ${label} — Failed to create`);
     }
 
     await client.chat.postEphemeral({

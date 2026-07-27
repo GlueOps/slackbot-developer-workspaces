@@ -4,12 +4,14 @@ import { Modal, Blocks, Elements } from 'slack-block-builder';
     Modal to create or update a VM profile: a name plus a block of KEY=VALUE env vars.
     Repo-to-clone is intentionally not here; it's chosen per-create, never saved.
 
-    When `editing` is true the name is LOCKED: rendered as static text (Slack has no
-    read-only input) and carried in private_metadata, so an edit always overwrites the
-    same profile in place and can't accidentally fork a renamed copy. When creating, the
-    name is an editable input.
+    Editing is signalled solely by a non-empty `name` (the caller passes the existing name
+    on edit, nothing on create). When editing, the name is LOCKED: rendered as static text
+    (Slack has no read-only input) and carried in private_metadata, so an edit always
+    overwrites the same profile in place and can't accidentally fork a renamed copy. When
+    creating, the name is an editable input.
 */
-export default function vmProfileModal({ name = '', envText = '', metaData, editing = false } = {}) {
+export default function vmProfileModal({ name = '', envText = '', metaData } = {}) {
+  const editing = Boolean(name);
   const nameBlock = editing
     ? Blocks.Section().text(`*Profile:* ${name}  _(name can't be changed when editing)_`)
     : Blocks.Input({ label: 'Profile name', blockId: 'profile_name' }).element(

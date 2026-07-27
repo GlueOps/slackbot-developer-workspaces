@@ -70,7 +70,7 @@ export default {
             : '';
           await app.client.views.open({
             trigger_id: body.trigger_id,
-            view: vmProfileModal({ name, envText, editing: true, metaData: JSON.stringify({ channel_id: body.channel.id, name }) })
+            view: vmProfileModal({ name, envText, metaData: JSON.stringify({ channel_id: body.channel.id, name }) })
           });
         } catch (error) {
           log.error('Failed to open profile for editing', error);
