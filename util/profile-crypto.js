@@ -62,6 +62,13 @@ export function decrypt(packed) {
 // normalized (trimmed + lowercased) so a Slack casing/whitespace change yields the same
 // id. Returns 64 hex chars.
 export function hashEmail(email) {
-    const normalized = String(email).trim().toLowerCase();
+    const normalized = String(email ?? '').trim().toLowerCase();
+    // Reject a missing/implausible email BEFORE it becomes an object id. Without this,
+    // `undefined`/`''` would hash to a single shared document that every affected user
+    // (dropped users:read.email scope, external Slack Connect user, guest with no email)
+    // could read and write — a silent cross-user secret merge.
+    if (!normalized || !normalized.includes('@')) {
+        throw new Error('Cannot derive profile id: no email for this Slack user');
+    }
     return crypto.createHmac('sha256', getKey()).update(normalized).digest('hex');
 }
