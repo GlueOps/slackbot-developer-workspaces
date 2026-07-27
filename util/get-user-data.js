@@ -3,7 +3,7 @@
     that is used in the cloud init script for the VMs.
 */
 
-export default function configUserData(serverName, cdeToken = null, cdeEnv = {}) {
+export default function configUserData(serverName, cdeToken = null, cdeEnv = {}, userEnv = {}) {
     let userData = `
         #cloud-config
         hostname: ${serverName}
@@ -35,14 +35,20 @@ export default function configUserData(serverName, cdeToken = null, cdeEnv = {})
     // from breaking the surrounding cloud-config YAML.
     // Sanitise first, then drop empties and any structurally invalid keys, so a
     // whitespace-only value or a malformed key can't emit a line that breaks the
-    // docker env-file (`Object.entries(cdeEnv ?? {})` also guards null/undefined).
-    const envEntries = Object.entries(cdeEnv ?? {})
-        .map(([key, value]) => [key, value == null ? '' : envValue(value)])
-        .filter(([key, value]) => value !== '' && /^[A-Za-z_][A-Za-z0-9_]*$/.test(key));
-    if (envEntries.length > 0) {
-        const envFileBody = envEntries
-            .map(([key, value]) => `GLUEOPS_CDE_${key}=${value}`)
-            .join('\n') + '\n';
+    // docker env-file (`Object.entries(... ?? {})` also guards null/undefined).
+    //
+    // Two namespaces share the one env-file: platform metadata (SERVER_NAME, REGION,
+    // CLONE_REPO, ...) is prefixed GLUEOPS_CDE_ so it never collides with a dev's own
+    // vars; user-supplied vars are written VERBATIM because the whole point is that the
+    // dev's app reads GITHUB_TOKEN, not GLUEOPS_CDE_GITHUB_TOKEN. The GLUEOPS_CDE_
+    // prefix is therefore reserved for the platform: user keys in that namespace are
+    // dropped so they can't clobber metadata (the modal already rejects them upstream,
+    // this is defence-in-depth).
+    const metadataLines = envLines(cdeEnv, 'GLUEOPS_CDE_');
+    const userLines = envLines(userEnv, '', /^GLUEOPS_CDE_/);
+    const allLines = [...metadataLines, ...userLines];
+    if (allLines.length > 0) {
+        const envFileBody = allLines.join('\n') + '\n';
         const envFileB64 = Buffer.from(envFileBody).toString('base64');
 
         // content is single-quoted for defence-in-depth: base64 never contains a
@@ -58,6 +64,20 @@ export default function configUserData(serverName, cdeToken = null, cdeEnv = {})
     }
 
     return userData;
+}
+
+// Turn an object into sanitised `PREFIX+KEY=VALUE` env-file lines. Drops entries whose
+// value sanitises to empty, whose key isn't a valid env identifier, or (when
+// reservedKeyPattern is given) whose key falls in a namespace reserved for another
+// writer — each such line could otherwise break the docker env-file or clobber a var.
+function envLines(obj, prefix, reservedKeyPattern = null) {
+    return Object.entries(obj ?? {})
+        .map(([key, value]) => [key, value == null ? '' : envValue(value)])
+        .filter(([key, value]) =>
+            value !== '' &&
+            /^[A-Za-z_][A-Za-z0-9_]*$/.test(key) &&
+            !(reservedKeyPattern && reservedKeyPattern.test(key)))
+        .map(([key, value]) => `${prefix}${key}=${value}`);
 }
 
 // Render a value for a docker env-file line. docker's --env-file is line-oriented and

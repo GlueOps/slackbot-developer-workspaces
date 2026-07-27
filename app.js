@@ -4,8 +4,22 @@ import registerListeners from './listeners/index.js';
 import 'dotenv/config';
 import server from './app-server.js';
 import logger from './util/logger.js';
+import { requireProfilesConfig } from './util/profile-store.js';
 
 const log = logger();
+
+// Last-resort safety net: a detached/un-awaited promise rejection (e.g. a fire-and-forget
+// provisioner call or button handler) must never take the whole bot down for every user.
+// Log it (through the redacting winston logger) and keep serving; the user can retry.
+process.on('unhandledRejection', (reason) => {
+    log.error('unhandledRejection', reason);
+});
+process.on('uncaughtException', (err) => {
+    log.error('uncaughtException', err);
+});
+
+// Fail fast if the (required) profiles S3 configuration is missing.
+requireProfilesConfig();
 
 //custom logger for bolt app
 const customLogger = {
@@ -33,6 +47,11 @@ const app = new App({
     appToken: process.env.APP_TOKEN,
     LogLevel: LogLevel.DEBUG,
     logger: customLogger,
+});
+
+// Catch-all for errors Bolt surfaces from listeners so they're logged, not swallowed.
+app.error(async (error) => {
+    log.error('bolt app error', error);
 });
 
 //function that starts the server and initializes the listeners

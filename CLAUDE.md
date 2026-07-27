@@ -9,6 +9,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 A Slack bot (Bolt.js, HTTP mode) that lets developers provision and manage VMs via slash commands. It talks to a [GlueOps Provisioner](https://github.com/GlueOps/provisioner) REST API that supports two backends: **libvirt** (bare-metal hypervisors over SSH) and **Proxmox VE** (via the Proxmox REST API). Users create, list, start, stop, delete, and edit VMs entirely through Slack modals and ephemeral messages.
 
+On create, a developer can also inject custom **environment variables**, auto-clone a **GitHub repo**, and apply a saved **profile** — a reusable bundle of env vars stored per-user in S3, encrypted at rest. Profiles are managed with `/vm profile` (list / new / delete, with an Edit button).
+
 ## Development Commands
 
 ```bash
@@ -31,16 +33,22 @@ There are no automated tests or linting tools configured.
 
 **Utility modules** (`util/`):
 - `libvirt/libvirt-server.js` — all Provisioner REST API calls: create, delete, list, start, stop, edit-tags.
-- `get-user-data.js` — builds cloud-init `user_data` for new VMs.
+- `get-user-data.js` — builds cloud-init `user_data` for new VMs. Writes `/etc/glueops/codespace.env`: platform metadata as `GLUEOPS_CDE_*`, user-supplied env vars **verbatim**.
+- `profile-store.js` — S3-backed store for per-user VM profiles (env-var bundles). Whole document encrypted at rest; the S3 object key is a keyed HMAC of the email. Every S3 call is bounded by `PROFILES_S3_TIMEOUT_MS`.
+- `profile-crypto.js` — AES-256-GCM `encrypt`/`decrypt` of the profile document + keyed `hashEmail()` for the object key. Guards against a missing email.
+- `parse-env-vars.js` — parses the `KEY=VALUE` env textarea; reports malformed lines for inline modal errors.
+- `parse-repo.js` — validates + normalises a repo-to-clone input to a canonical `https://github.com/owner/repo.git` URL.
+- `redact.js` — strips secrets from log records; wired into `logger.js`.
 - `token-generator.js` — generates CDE tokens for single-click experience.
 - `button-builder.js` — builds Slack Block Kit button rows.
 - `format-date.js` — date formatting and VM sort helpers.
-- `logger.js` — structured JSON logger.
+- `logger.js` — structured JSON logger; redacts secrets via `redact.js` before output.
 - `axios-error-handler.js` — normalises axios errors for logging.
 
 **UI builders** (`user-interface/modals/`):
-- `vm-create.js` — VM creation modal. Accepts `regionStats` for Proxmox capacity/load context block.
+- `vm-create.js` — VM creation modal. Accepts `regionStats` for the Proxmox capacity/load context block, an optional profile picker, per-VM description + repo inputs, and a shared env-vars textarea. Takes initial-value params so a region change rebuilds it without losing typed input.
 - `vm-edit.js` — VM description edit modal.
+- `vm-profile.js` — create/update a VM profile (name + env vars). The name is locked (rendered as static text) when editing.
 
 ## Key Patterns
 
@@ -60,6 +68,12 @@ There are no automated tests or linting tools configured.
 
 **All responses are ephemeral:** `chat.postEphemeral` is used throughout — responses are only visible to the triggering user.
 
+**Custom env vars & repo clone:** the create modal has an optional env-vars textarea (`KEY=VALUE` per line) and a per-VM repo field. Env is parsed by `parse-env-vars.js` and written **verbatim** to `codespace.env` (dev apps expect `GITHUB_TOKEN`, not `GLUEOPS_CDE_GITHUB_TOKEN`); the `GLUEOPS_CDE_` prefix is reserved for platform metadata, and user keys in that namespace are dropped. The repo is validated/normalised by `parse-repo.js`, stored on the VM tag `clone_repo`, emitted as `GLUEOPS_CDE_CLONE_REPO`, and shown in the create confirmation and `/vm list`.
+
+**VM profiles (S3 + encryption):** a profile is a per-user, named bundle of env vars stored as one JSON document per user in S3 (`profile-store.js`). The whole document is encrypted with AES-256-GCM (`profile-crypto.js`) using `PROFILES_ENCRYPTION_KEY`, and the S3 object key is a keyed HMAC of the normalized email — so the bucket reveals neither contents nor identity. Encryption is **client-side** (Node `crypto`), not S3 SSE. The create modal shows an optional profile picker (only when the user has profiles, never a default); on submit the profile's env is merged **under** anything typed (typed wins). Profiles are managed via `/vm profile` + Edit/Delete/New buttons; **editing overwrites in place** (the name is locked). All `PROFILES_S3_*` + `PROFILES_ENCRYPTION_KEY` vars are **required at startup** (`requireProfilesConfig()` in `app.js`).
+
+**Log redaction:** `logger.js` runs every record through `redact.js`, which strips secret-bearing fields (by key name and by long base64 blobs) — including the cloud-init `user_data` if the provisioner echoes it in an error. No call site can leak secrets to logs.
+
 ## Required Environment Variables
 
 See `example.env` for the full list.
@@ -75,3 +89,13 @@ See `example.env` for the full list.
 | `GUACAMOLE_CONNECTION_URL` | VNC access URL shown to users after VM creation |
 | `APP_ENVIRONMENT` | `prod` or `nonprod` (controls command prefix) |
 | `SERVER_PORT` | HTTP port (default: `5000`) |
+| `PROFILES_S3_ENDPOINT` | S3 endpoint URL for the profile store |
+| `PROFILES_S3_BUCKET` | S3 bucket for the profile store |
+| `PROFILES_S3_REGION` | S3 region |
+| `PROFILES_S3_ACCESS_KEY_ID` | S3 access key id |
+| `PROFILES_S3_SECRET_ACCESS_KEY` | S3 secret access key |
+| `PROFILES_S3_PREFIX` | Optional S3 key prefix (default `profiles/`) |
+| `PROFILES_S3_TIMEOUT_MS` | Optional per-S3-call timeout in ms (default `5000`) |
+| `PROFILES_ENCRYPTION_KEY` | 32-byte key as 64 hex chars, encrypts the profile store at rest. Generate: `openssl rand -hex 32` |
+
+The `PROFILES_*` vars (except the two optional ones) are **required** — the bot fails to start without them (`requireProfilesConfig()`).
