@@ -99,7 +99,6 @@ export default async function vmRegionCallback({ ack, body, client }) {
   const profiles = parsedMetaData.profiles || [];
   const selectedProfile = st.profile?.profile?.selected_option?.value || null;
   const selectedImage = st.image?.image?.selected_option?.value || null;
-  const envText = st.env_vars?.env_vars?.value || '';
   const singleClick = st.launchMode?.singleClickExperience?.selected_options?.some(
     o => o.value === 'single_click_enabled'
   ) ?? false;
@@ -115,7 +114,7 @@ export default async function vmRegionCallback({ ack, body, client }) {
     view_id: body.view.id,
     view: vmModal({
       regions, images, servers, metaData, vmCount, regionStats, selectedRegion,
-      profiles, selectedProfile, selectedImage, descriptions, cloneRepos, envText, singleClick
+      profiles, selectedProfile, selectedImage, descriptions, cloneRepos, singleClick
     })
   });
 }

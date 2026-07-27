@@ -1,44 +1,13 @@
 import { Modal, Blocks, Elements, Bits } from 'slack-block-builder';
 
-// Pre-seeded into the env-vars textarea on first open (GlueOps-specific, hardcoded).
-// EVERY line is a comment — nothing here sets a value. That's deliberate: a value-bearing
-// default would win over a selected profile in the create merge ({...profile, ...typed})
-// and silently clobber the profile's own version of that key. The recommended keys are
-// shown commented-out (AutoGlue URL defaults visible, grouped by environment); a dev opts
-// in by uncommenting, and the runtime defaults live on the VM (cde-init / cde-boot).
-const DEFAULT_ENV_TEXT = [
-  '# Uncomment a line (remove the leading "# ") and set its value to use it.',
-  '# Blank lines and comments are ignored.',
-  '#',
-  '# GITHUB_TOKEN — required for PRIVATE repo clones and gh auth; public repos work without it.',
-  '# GITHUB_TOKEN=',
-  '#',
-  '# AutoGlue SSH (gluekube_ssh): to auto-create a profile, uncomment BOTH its URL and token',
-  '# (a profile is seeded only when the URL and token are both set).',
-  '#   prod:',
-  '# GLUEKUBE_SSH_AUTOGLUE_PROD_URL=https://autoglue.glueopshosted.com/api/v1',
-  '# GLUEKUBE_SSH_AUTOGLUE_PROD_TOKEN=',
-  '#   nonprod:',
-  '# GLUEKUBE_SSH_AUTOGLUE_NONPROD_URL=https://autoglue.glueopshosted.rocks/api/v1',
-  '# GLUEKUBE_SSH_AUTOGLUE_NONPROD_TOKEN=',
-  '#',
-  '# CDE_SETUP_SCRIPT runs at CDE start. Left unset, the default bootstrap `cde-init` runs',
-  '# (gh auth + clone your repo + set up AutoGlue). Uncomment + change it to override:',
-  '#   <a command>       = run it instead, e.g.  curl setup.example.com | zsh',
-  '#   base64:<encoded>  = a complex/multi-line script  (<script> | base64 -w0)',
-  '#                       e.g.  base64:Y2RlLWluaXQ=  decodes to  cde-init',
-  '#   true              = skip setup entirely',
-  '# CDE_SETUP_SCRIPT=cde-init',
-].join('\n');
-
-// `envText` is undefined on first open → pre-seed DEFAULT_ENV_TEXT. On a region re-render,
-// vm-region.js passes the current textarea value (a string, possibly empty), shown as-is so
-// a dev who edited or cleared it isn't reset back to the default.
-export default function vmCreateModal({ regions = [], images = [], servers = [], metaData, vmCount = 1, regionStats = null, selectedRegion = null, profiles = [], selectedProfile = null, selectedImage = null, selectedServer = null, descriptions = [], cloneRepos = [], envText, singleClick = false } = {}) {
+// Env vars are NOT entered on this modal — they come solely from a selected profile
+// (managed via `/vm profile`; the recommended-keys guidance now lives in the profile-create
+// modal). This modal only picks a profile; the merge happens in listeners/views/vm-create-modal.js.
+export default function vmCreateModal({ regions = [], images = [], servers = [], metaData, vmCount = 1, regionStats = null, selectedRegion = null, profiles = [], selectedProfile = null, selectedImage = null, selectedServer = null, descriptions = [], cloneRepos = [], singleClick = false } = {}) {
   const title = vmCount > 1 ? `Create ${vmCount} VMs` : 'Create VM';
 
   // Per-VM fields: each VM gets its own description and repo to clone (different VMs are
-  // usually different repos). Region/image/size/env stay shared across the batch.
+  // usually different repos). Region/image/size and any selected profile stay shared.
   // initialValue re-seeds anything the user already typed when the modal is rebuilt (e.g.
   // on region change), so switching regions doesn't wipe their input.
   const perVmBlocks = [];
@@ -63,9 +32,10 @@ export default function vmCreateModal({ regions = [], images = [], servers = [],
 
   return Modal({ title, submit: 'Submit', callbackId: 'vm-create-modal', privateMetaData: metaData })
     .blocks(
-      // Optional profile picker — shown only when the user has saved profiles. Selecting
-      // one applies its env vars on submit (merged under anything typed below). No default
-      // selection; never required.
+      // Optional profile picker — the ONLY way to inject env vars. Shown when the user has
+      // saved profiles; selecting one applies its env vars on submit. No default selection;
+      // never required (no profile = a plain VM with no injected env). When the user has no
+      // profiles, a hint points them to `/vm profile new`.
       ...(profiles.length > 0
         ? [Blocks.Input({ label: 'Profile', blockId: 'profile', optional: true }).element(
             Elements.StaticSelect({ actionId: 'profile' })
@@ -77,7 +47,9 @@ export default function vmCreateModal({ regions = [], images = [], servers = [],
                   : undefined
               )
           )]
-        : []),
+        : [Blocks.Context().elements(
+            'No profiles yet — run `/vm profile new` to save environment variables (e.g. `GITHUB_TOKEN`) you can apply here.'
+          )]),
 
       Blocks.Input({ label: 'Region', blockId: 'region' })
       .dispatchAction(true)
@@ -136,14 +108,6 @@ export default function vmCreateModal({ regions = [], images = [], servers = [],
       ),
 
       ...perVmBlocks,
-
-      Blocks.Input({ label: vmCount > 1 ? `Environment variables (applied to all ${vmCount} VMs)` : 'Environment variables', blockId: 'env_vars', optional: true }).element(
-        Elements.TextInput({ actionId: 'env_vars' })
-          .multiline(true)
-          .placeholder('One per line, KEY=VALUE\nGITHUB_TOKEN=ghp_...\nDATABASE_URL=postgres://...')
-          .initialValue((envText === undefined ? DEFAULT_ENV_TEXT : envText) || undefined)
-          .maxLength(3000)
-      ),
 
       Blocks.Input({ label: 'Launch Mode', blockId: 'launchMode', optional: true }).element(
         Elements.Checkboxes({ actionId: 'singleClickExperience' })

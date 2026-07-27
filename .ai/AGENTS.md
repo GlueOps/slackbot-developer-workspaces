@@ -39,7 +39,7 @@ import redactSensitive from './util/redact.js'
 import axiosError from './util/axios-error-handler.js'
 import buttonBuilder from './util/button-builder.js'
 import configUserData from './util/get-user-data.js'            // cloud-init user_data + codespace.env (metadata + user env)
-import parseEnvVars from './util/parse-env-vars.js'             // KEY=VALUE textarea -> { env, errors }
+import parseEnvVars from './util/parse-env-vars.js'             // KEY=VALUE textarea (profile modal) -> { env, errors }
 import parseRepo from './util/parse-repo.js'                    // repo input -> canonical https .git URL
 import { generateCdeToken } from './util/token-generator.js'
 import { formatCreatedDate, sortByCreatedAtAsc } from './util/format-date.js'
@@ -139,20 +139,22 @@ These are load-bearing. Do not change without understanding the impact.
   → updates modal via vmCreateModal({ regions, images, servers: [], regionStats: null, profiles })
      (profile names also stashed in privateMetaData so the picker survives re-render)
 
-Modal fields: [profile picker if any] · region · [Proxmox stats] · image · server type
-              · per-VM {description, repo} · shared env-vars textarea · single-click
+Modal fields: [profile picker if any, else a "/vm profile new" hint] · region · [Proxmox stats]
+              · image · server type · per-VM {description, repo} · single-click
+              (NO env textarea — env vars come only from the selected profile)
 
 User selects a region (dispatch action fires)
   → vm-region.js: re-fetches /v1/regions + /v1/get-images
   → finds selected regionObj, extracts instance types + regionStats
-  → re-seeds image, descriptions, repos, env, single-click, profile from view.state.values
-     (so switching regions does NOT wipe typed input; server type intentionally resets)
+  → re-seeds image, descriptions, repos, single-click, profile from view.state.values
+     (so switching regions does NOT wipe input; server type intentionally resets)
   → updates modal via vmCreateModal({ ..., regionStats, profiles, selected* })
 
 User submits modal
-  → vm-create-modal.js: parse + validate env (parse-env-vars) and each repo (parse-repo)
-     and reject placeholder region/image/server — BEFORE ack(); inline errors on failure
-  → if a profile was picked: getProfile() and merge its env UNDER typed env (typed wins)
+  → vm-create-modal.js: validate each repo (parse-repo) and reject placeholder
+     region/image/server — BEFORE ack(); inline errors on failure
+  → if a profile was picked: getProfile() and use its env as the ONLY env source
+     (abort creation if it can't be loaded); no profile → a plain VM with no env
   → calls libvirt.createServer() per VM (parallel for batch; batch=true suppresses per-VM chatter)
   → createServer writes codespace.env (metadata + user env), tags clone_repo, posts result
      (single: Server/Profile/Repo/Access; batch: one summary line per VM)
