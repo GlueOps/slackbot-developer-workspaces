@@ -54,7 +54,7 @@ There are no automated tests or linting tools configured.
 
 **Proxmox regionStats:** `/v1/regions` returns capacity/load as separate fields on Proxmox region objects (`total_vcpus`, `free_vcpus`, `total_memory_gb`, `free_memory_gb`, `total_storage_gb`, `free_storage_gb`, `cpu_pct`, `ram_pct`). Libvirt regions return `null` for all these fields. `vm-region.js` builds a `regionStats` object when `cpu_pct != null`, passes it to the modal builder, which renders a three-line context block with emoji-coded load. When `regionStats` is `null` (libvirt), the context block is omitted entirely.
 
-**Over Allocated instance types:** The provisioner appends ` (Over Allocated)` to instance type names when a node's free capacity is less than the type requires. The slackbot passes this string through as-is — both as the dropdown label and as the value sent back to the provisioner on create. The provisioner strips the suffix before lookup.
+**Over Allocated instance types:** The provisioner appends ` (Over Allocated)` to instance type names when a node's free capacity is less than the type requires. The slackbot passes this string through as-is — as the dropdown label, as the value sent back to the provisioner on create, and as `GLUEOPS_CDE_INSTANCE_TYPE` in the cloud-init env file. The provisioner strips the suffix before lookup.
 
 **User identity:** All operations resolve the Slack user to their email via `client.users.info({ user: body.user.id })`. The email is stored as `owner` in VM tags and used to filter VMs on list.
 

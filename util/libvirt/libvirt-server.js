@@ -62,7 +62,14 @@ export default {
                 {
                     "vm_name": serverName,
                     "tags": tags,
-                    "user_data": Buffer.from(configUserData(serverName, cdeToken)).toString('base64'),
+                    "user_data": Buffer.from(configUserData(serverName, cdeToken, {
+                        SERVER_NAME: serverName,
+                        REGION: region,
+                        INSTANCE_TYPE: instanceType,
+                        IMAGE: imageName,
+                        OWNER: userEmail,
+                        CREATED_AT: tags.created_at
+                    })).toString('base64'),
                     "image": imageName,
                     "region_name": region,
                     "instance_type": instanceType
