@@ -27,9 +27,18 @@ import { encrypt, decrypt, encryptionKeyValid, hashEmail } from './profile-crypt
 
 const log = logger();
 
+// The AWS SDK needs an ABSOLUTE URL (with scheme) for a custom endpoint; a bare host like
+// "s3.example.com" throws a cryptic "Invalid URL" deep inside the SDK on first use. Default
+// to https:// when the scheme is omitted so the common misconfiguration just works.
+function normalizeEndpoint(ep) {
+    const v = (ep || '').trim();
+    if (!v) return undefined;
+    return /^https?:\/\//i.test(v) ? v : `https://${v}`;
+}
+
 const BUCKET = process.env.PROFILES_S3_BUCKET;
 const REGION = process.env.PROFILES_S3_REGION;
-const ENDPOINT = process.env.PROFILES_S3_ENDPOINT || undefined;
+const ENDPOINT = normalizeEndpoint(process.env.PROFILES_S3_ENDPOINT);
 const PREFIX = process.env.PROFILES_S3_PREFIX ?? 'profiles/';
 // Bound every S3 call so an unresponsive endpoint can't hang a Slack interaction forever
 // (the AWS SDK's default request timeout is 0 = unbounded). AbortSignal.timeout fires once
@@ -77,6 +86,13 @@ export function requireProfilesConfig() {
     }
     if (!encryptionKeyValid()) {
         throw new Error('PROFILES_ENCRYPTION_KEY must be 32 bytes as 64 hex chars (generate with: openssl rand -hex 32)');
+    }
+    // Catch a malformed endpoint at startup with a clear message, instead of a cryptic
+    // "Invalid URL" from the AWS SDK on the first profile read/write.
+    try {
+        new URL(ENDPOINT);
+    } catch {
+        throw new Error(`PROFILES_S3_ENDPOINT is not a valid URL: "${process.env.PROFILES_S3_ENDPOINT}" (expected e.g. https://s3.us-east-1.amazonaws.com)`);
     }
 }
 
