@@ -1,7 +1,9 @@
 import libvirt from '../../util/libvirt/libvirt-server.js';
 import vmCreateModal from '../../user-interface/modals/vm-create.js';
+import vmProfileModal from '../../user-interface/modals/vm-profile.js';
 import buttonBuilder from '../../util/button-builder.js';
 import { formatCreatedDate, sortByCreatedAtAsc } from '../../util/format-date.js';
+import { profilesEnabled, listProfiles, deleteProfile } from '../../util/profile-store.js';
 import 'dotenv/config';
 import axios from 'axios';
 import logger from '../../util/logger.js';
@@ -53,6 +55,21 @@ export default {
           trigger_id: body.trigger_id,
           view: vmEditModal({ description: tags.description || '', metaData: JSON.stringify({ serverName, region, channel_id: body.channel.id, tags }) })
         });
+    } else if (actionId === 'button_profile_new') {
+        await app.client.views.open({
+          trigger_id: body.trigger_id,
+          view: vmProfileModal({ metaData: JSON.stringify({ channel_id: body.channel.id }) })
+        });
+    } else if (actionId === 'button_profile_delete') {
+        const { name } = JSON.parse(body.actions[0].value);
+        try {
+          const info = await app.client.users.info({ user: body.user.id });
+          await deleteProfile(info.user.profile.email, name);
+          await app.client.chat.postEphemeral({ channel: body.channel.id, user: body.user.id, text: `Deleted profile: ${name}` });
+        } catch (error) {
+          log.error('Failed to delete profile', error);
+          await app.client.chat.postEphemeral({ channel: body.channel.id, user: body.user.id, text: `Failed to delete profile: ${name}` });
+        }
     } else {
         await app.client.chat.postEphemeral({
           channel: body.channel.id,
@@ -117,10 +134,22 @@ export default {
         const filteredRegions = vmCount > 1
           ? regions.filter(r => r.available_instance_types?.some(t => t.memory_mb <= MAX_VM_RAM_MB))
           : regions;
-        
+
+        // Load the user's saved profiles for the picker. Best-effort: a failure (or the
+        // feature being disabled) just yields no picker, never blocks creation.
+        let profileNames = [];
+        if (profilesEnabled()) {
+          try {
+            const info = await app.client.users.info({ user: event.user_id });
+            profileNames = Object.keys(await listProfiles(info.user.profile.email)).sort();
+          } catch (error) {
+            log.error('Failed to load profiles for create modal', error);
+          }
+        }
+
         await app.client.views.update({
           view_id: result.view.id,
-          view: vmCreateModal({ regions: filteredRegions, images, servers: [], metaData: JSON.stringify({ channel_id: event.channel_id, vmCount }), vmCount })
+          view: vmCreateModal({ regions: filteredRegions, images, servers: [], metaData: JSON.stringify({ channel_id: event.channel_id, vmCount, profiles: profileNames }), vmCount, profiles: profileNames })
         });
       break;
     case 'list': {
@@ -335,11 +364,97 @@ export default {
 
       break;
     }
+    case 'profile': {
+      if (!profilesEnabled()) {
+        await app.client.chat.postEphemeral({
+          channel: event.channel_id, user: event.user_id,
+          text: 'Profiles are not configured on this bot.'
+        });
+        return;
+      }
+
+      const sub = args[1];
+
+      // Open the create/update modal
+      if (sub === 'new' || sub === 'create') {
+        await app.client.views.open({
+          trigger_id: body.trigger_id,
+          view: vmProfileModal({ metaData: JSON.stringify({ channel_id: event.channel_id }) })
+        });
+        return;
+      }
+
+      let email;
+      try {
+        const info = await app.client.users.info({ user: event.user_id });
+        email = info.user.profile.email;
+      } catch (error) {
+        log.error('Failed to resolve user email for profiles', error);
+        await app.client.chat.postEphemeral({ channel: event.channel_id, user: event.user_id, text: 'Failed to load your profiles.' });
+        return;
+      }
+
+      if (sub === 'delete') {
+        const name = args.slice(2).join(' ').trim();
+        if (!name) {
+          await app.client.chat.postEphemeral({ channel: event.channel_id, user: event.user_id, text: `Usage: /${commandPrefix}vm profile delete <name>` });
+          return;
+        }
+        try {
+          await deleteProfile(email, name);
+          await app.client.chat.postEphemeral({ channel: event.channel_id, user: event.user_id, text: `Deleted profile: ${name}` });
+        } catch (error) {
+          log.error('Failed to delete profile', error);
+          await app.client.chat.postEphemeral({ channel: event.channel_id, user: event.user_id, text: `Failed to delete profile: ${name}` });
+        }
+        return;
+      }
+
+      // Default: list the user's profiles with delete + new-profile controls
+      let profiles;
+      try {
+        profiles = await listProfiles(email);
+      } catch (error) {
+        log.error('Failed to list profiles', error);
+        await app.client.chat.postEphemeral({ channel: event.channel_id, user: event.user_id, text: 'Failed to load your profiles.' });
+        return;
+      }
+
+      const names = Object.keys(profiles).sort();
+      const blocks = [
+        { type: 'section', text: { type: 'mrkdwn', text: names.length ? '*Your VM profiles*' : "You don't have any profiles yet." } }
+      ];
+      for (const name of names) {
+        const count = Object.keys(profiles[name]?.env || {}).length;
+        blocks.push({
+          type: 'section',
+          text: { type: 'mrkdwn', text: `*${name}* — ${count} env var${count === 1 ? '' : 's'}` },
+          accessory: {
+            type: 'button',
+            text: { type: 'plain_text', text: 'Delete' },
+            style: 'danger',
+            action_id: 'button_profile_delete',
+            value: JSON.stringify({ name })
+          }
+        });
+      }
+      blocks.push({
+        type: 'actions',
+        elements: [
+          { type: 'button', text: { type: 'plain_text', text: 'New profile' }, action_id: 'button_profile_new' }
+        ]
+      });
+
+      await app.client.chat.postEphemeral({
+        channel: event.channel_id, user: event.user_id, text: 'Your VM profiles', blocks
+      });
+      return;
+    }
     default:
       await app.client.chat.postEphemeral({
         channel: event.channel_id,
         user: event.user_id,
-        text: `Access your existing VMs with: <${process.env.GUACAMOLE_CONNECTION_URL}|Guacamole>\n\nAvailable subcommands:\n• /${commandPrefix}vm create [count] - Create one or more VMs (default: 1, max: ${MAX_VM_COUNT})\n• /${commandPrefix}vm list - List existing VMs\n• /${commandPrefix}vm start <vm name> - Start a VM\n• /${commandPrefix}vm stop <vm name> - Stop a VM\n• /${commandPrefix}vm delete <vm name> - Delete a VM\n• /${commandPrefix}vm edit <vm name> - Edit a VM Description`,
+        text: `Access your existing VMs with: <${process.env.GUACAMOLE_CONNECTION_URL}|Guacamole>\n\nAvailable subcommands:\n• /${commandPrefix}vm create [count] - Create one or more VMs (default: 1, max: ${MAX_VM_COUNT})\n• /${commandPrefix}vm list - List existing VMs\n• /${commandPrefix}vm start <vm name> - Start a VM\n• /${commandPrefix}vm stop <vm name> - Stop a VM\n• /${commandPrefix}vm delete <vm name> - Delete a VM\n• /${commandPrefix}vm edit <vm name> - Edit a VM Description\n• /${commandPrefix}vm profile - Manage reusable env-var profiles`,
       });
     }
   }

@@ -83,9 +83,14 @@ export default async function vmRegionCallback({ ack, body, client }) {
     servers = servers.filter(s => s.memory_mb <= MAX_VM_RAM_MB);
   }
 
+  // Preserve the profile picker + any current selection across the in-place rebuild
+  // (profile names are stashed in private_metadata when the modal is first opened).
+  const profiles = parsedMetaData.profiles || [];
+  const selectedProfile = body.view.state?.values?.profile?.profile?.selected_option?.value || null;
+
   // Update the modal in place
   await client.views.update({
     view_id: body.view.id,
-    view: vmModal({ regions, images, servers, metaData, vmCount, regionStats, selectedRegion })
+    view: vmModal({ regions, images, servers, metaData, vmCount, regionStats, selectedRegion, profiles, selectedProfile })
   });
 }

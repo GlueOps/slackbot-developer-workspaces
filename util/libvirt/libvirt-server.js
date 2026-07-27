@@ -10,7 +10,7 @@ import { randomBytes } from 'crypto';
 const log = logger();
 
 export default {
-    createServer: async({ client, body, imageName, region, instanceType, description, channel_id, singleClickExperience }) => {
+    createServer: async({ client, body, imageName, region, instanceType, description, channel_id, singleClickExperience, userEnv = {}, cloneRepo = null, profileName = null }) => {
         //auto generate the name
         const serverName = uniqueNamesGenerator({
             dictionaries: [ colors, animals ],
@@ -68,8 +68,12 @@ export default {
                         INSTANCE_TYPE: instanceType,
                         IMAGE: imageName,
                         OWNER: userEmail,
-                        CREATED_AT: tags.created_at
-                    })).toString('base64'),
+                        CREATED_AT: tags.created_at,
+                        // Platform-namespaced clone hint; consumed by the codespaces
+                        // image's developer-setup.sh at boot (per-create, not persisted).
+                        // The default branch is always used.
+                        ...(cloneRepo && { CLONE_REPO: cloneRepo })
+                    }, userEnv)).toString('base64'),
                     "image": imageName,
                     "region_name": region,
                     "instance_type": instanceType
@@ -103,6 +107,9 @@ export default {
         }
 
         let responseText = `Server: ${serverName}\nDescription: ${descriptionText}\nStatus: Created\nRegion: ${region}`;
+        if (profileName) {
+            responseText += `\nProfile: ${profileName}`;
+        }
         responseText += `\nAccess: <${accessUrl}|${accessLabel}>`;
         responseText += `\n\n_Note: It may take up to 60 seconds for the server to be accessible as it has just been created._`;
 

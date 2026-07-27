@@ -35,6 +35,10 @@ const registeredButtons = {
     "^button_edit_": {
         command: 'vm',
         isRegex: true,
+    },
+    "^button_profile_": {
+        command: 'vm',
+        isRegex: true,
     }
 };
 

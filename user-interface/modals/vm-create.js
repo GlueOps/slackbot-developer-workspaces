@@ -1,6 +1,6 @@
 import { Modal, Blocks, Elements, Bits } from 'slack-block-builder';
 
-export default function vmCreateModal({ regions = [], images = [], servers = [], metaData, vmCount = 1, regionStats = null, selectedRegion = null } = {}) {
+export default function vmCreateModal({ regions = [], images = [], servers = [], metaData, vmCount = 1, regionStats = null, selectedRegion = null, profiles = [], selectedProfile = null } = {}) {
   const title = vmCount > 1 ? `Create ${vmCount} VMs` : 'Create VM';
 
   const descriptionBlocks = [];
@@ -17,6 +17,22 @@ export default function vmCreateModal({ regions = [], images = [], servers = [],
 
   return Modal({ title, submit: 'Submit', callbackId: 'vm-create-modal', privateMetaData: metaData })
     .blocks(
+      // Optional profile picker — shown only when the user has saved profiles. Selecting
+      // one applies its env vars on submit (merged under anything typed below). No default
+      // selection; never required.
+      ...(profiles.length > 0
+        ? [Blocks.Input({ label: 'Profile', blockId: 'profile', optional: true }).element(
+            Elements.StaticSelect({ actionId: 'profile' })
+              .placeholder('No profile')
+              .options(profiles.map(name => Bits.Option({ text: name, value: name })))
+              .initialOption(
+                selectedProfile
+                  ? Bits.Option({ text: selectedProfile, value: selectedProfile })
+                  : undefined
+              )
+          )]
+        : []),
+
       Blocks.Input({ label: 'Region', blockId: 'region' })
       .dispatchAction(true)
       .element(
@@ -69,6 +85,19 @@ export default function vmCreateModal({ regions = [], images = [], servers = [],
       ),
 
       ...descriptionBlocks,
+
+      Blocks.Input({ label: 'Git repository to clone', blockId: 'clone_repo', optional: true }).element(
+        Elements.TextInput({ actionId: 'clone_repo' })
+          .placeholder('owner/repo or https://github.com/owner/repo')
+          .maxLength(300)
+      ),
+
+      Blocks.Input({ label: 'Environment variables', blockId: 'env_vars', optional: true }).element(
+        Elements.TextInput({ actionId: 'env_vars' })
+          .multiline(true)
+          .placeholder('One per line, KEY=VALUE\nGITHUB_TOKEN=ghp_...\nDATABASE_URL=postgres://...')
+          .maxLength(3000)
+      ),
 
       Blocks.Input({ label: 'Launch Mode', blockId: 'launchMode', optional: true }).element(
         Elements.Checkboxes({ actionId: 'singleClickExperience' })
