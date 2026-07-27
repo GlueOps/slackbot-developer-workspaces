@@ -1,5 +1,17 @@
 # Changelog
 
+## [4.1.0](https://github.com/GlueOps/slackbot-developer-workspaces/compare/v4.0.0...v4.1.0) (2026-07-27)
+
+
+### Features
+
+* make VM profiles the only way to set env vars on create ([#491](https://github.com/GlueOps/slackbot-developer-workspaces/issues/491)) ([dae8417](https://github.com/GlueOps/slackbot-developer-workspaces/commit/dae84174f241860a3257352e8e2f6ef4457a4255))
+
+
+### Bug Fixes
+
+* accept a scheme-less PROFILES_S3_ENDPOINT and validate it at startup ([#490](https://github.com/GlueOps/slackbot-developer-workspaces/issues/490)) ([4c68461](https://github.com/GlueOps/slackbot-developer-workspaces/commit/4c684618c874a71234f34b56e04e18f68f44963e))
+
 ## [4.0.0](https://github.com/GlueOps/slackbot-developer-workspaces/compare/v3.41.1...v4.0.0) (2026-07-27)
 
 
