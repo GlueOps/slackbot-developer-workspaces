@@ -2,6 +2,8 @@
 
 A Slack bot (Bolt.js, HTTP mode) for provisioning and managing developer VMs via slash commands. Talks to the [GlueOps Provisioner](https://github.com/GlueOps/provisioner) API, which supports both **libvirt** (bare-metal) and **Proxmox VE** backends.
 
+On create, developers can inject custom environment variables, auto-clone a GitHub repo, and apply reusable **profiles** — bundles of env vars saved per-user in S3 and encrypted at rest. See [VM Profiles & Environment](#vm-profiles--environment).
+
 > **For developers and AI agents:** See [CLAUDE.md](CLAUDE.md) and [.ai/AGENTS.md](.ai/AGENTS.md) for architecture, key patterns, invariants, and module reference.
 
 # Installation
@@ -10,6 +12,7 @@ A Slack bot (Bolt.js, HTTP mode) for provisioning and managing developer VMs via
 - Slack App setup
 - Tailscale Account and configured with auth token to add machines
 - [Provisioner](https://github.com/GlueOps/provisioner) API deployed (libvirt and/or Proxmox backends)
+- An S3-compatible bucket + credentials for the VM profiles store (see [VM Profiles & Environment](#vm-profiles--environment)). **Required** — the bot will not start without the `PROFILES_*` variables.
 
 ### Steps
 1. pull down the latest image from ghcr
@@ -72,6 +75,28 @@ The goals of this ACL policy are to allow the provisioner API to access "provisi
 When testing new policies/ACLs it's best to just create a separate tailnet/tailscale account for testing.
 
 You can find an example ACL file in this [repo](tailscale-acls.json).
+
+# VM Profiles & Environment
+
+When creating a VM, developers can:
+
+- **Set environment variables** — a `KEY=VALUE` textarea in the create modal, written verbatim into the VM's `/etc/glueops/codespace.env`.
+- **Clone a GitHub repo** — a per-VM field accepting `owner/repo`, `github.com/owner/repo`, or a full/`.git`/browser URL (normalised to a canonical clone URL). *(Labelled BETA until the [codespaces](https://github.com/glueops/codespaces) image clones it at boot.)*
+- **Apply a profile** — a saved, reusable bundle of env vars. Manage profiles with `/vm profile` (list), `/vm profile new`, `/vm profile delete <name>`, and the **Edit**/**Delete** buttons. Picking a profile at create time merges its env under anything typed (typed wins).
+
+### Profiles storage & encryption
+
+Profiles are stored as one JSON document per user in an S3-compatible bucket. The **entire document is encrypted client-side** with AES-256-GCM before upload (S3 only ever sees ciphertext), and the object key is a keyed HMAC of the user's email — so the bucket reveals neither contents nor identity.
+
+Set the following (see `example.env`): `PROFILES_S3_ENDPOINT`, `PROFILES_S3_BUCKET`, `PROFILES_S3_REGION`, `PROFILES_S3_ACCESS_KEY_ID`, `PROFILES_S3_SECRET_ACCESS_KEY`, and `PROFILES_ENCRYPTION_KEY`. Optional: `PROFILES_S3_PREFIX` (default `profiles/`) and `PROFILES_S3_TIMEOUT_MS` (default `5000`).
+
+Generate the encryption key (32 bytes, 64 hex chars):
+
+```bash
+openssl rand -hex 32
+```
+
+> ⚠️ The key is not recoverable. If it is lost or rotated, every stored profile becomes unreadable (the object names are derived from it too) and profiles must be recreated. Store it with your other secrets.
 
 # Adding Bot commands
 To register a new command, create a file `myCommand.js` in listeners/commands
