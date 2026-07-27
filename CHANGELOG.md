@@ -1,5 +1,31 @@
 # Changelog
 
+## [4.0.0](https://github.com/GlueOps/slackbot-developer-workspaces/compare/v3.41.1...v4.0.0) (2026-07-27)
+
+
+### ⚠ BREAKING CHANGES
+
+* new REQUIRED environment variables — the bot will not start without them:
+    - PROFILES_S3_ENDPOINT — S3 endpoint URL for the profile store
+    - PROFILES_S3_BUCKET — S3 bucket name
+    - PROFILES_S3_REGION — S3 region
+    - PROFILES_S3_ACCESS_KEY_ID — S3 access key id
+    - PROFILES_S3_SECRET_ACCESS_KEY — S3 secret access key
+    - PROFILES_ENCRYPTION_KEY — 32-byte key as 64 hex chars; generate with `openssl rand -hex 32`
+    Optional: PROFILES_S3_PREFIX (default `profiles/`), PROFILES_S3_TIMEOUT_MS (default 5000).
+
+### Features
+
+* custom env vars, repo cloning, and S3-backed VM profiles ([#489](https://github.com/GlueOps/slackbot-developer-workspaces/issues/489)) ([5cba5d4](https://github.com/GlueOps/slackbot-developer-workspaces/commit/5cba5d4180dfd3e15c78ff24dbed5113fecec6d1))
+* write workspace metadata to /etc/glueops/codespace.env ([#488](https://github.com/GlueOps/slackbot-developer-workspaces/issues/488)) ([57a0e4a](https://github.com/GlueOps/slackbot-developer-workspaces/commit/57a0e4ab007c25a7765ee7a660e8f425f6950922))
+
+
+### Miscellaneous Chores
+
+* **fallback:** update actions/checkout ([#487](https://github.com/GlueOps/slackbot-developer-workspaces/issues/487)) ([81197dc](https://github.com/GlueOps/slackbot-developer-workspaces/commit/81197dcc9a802f1f4a78d1ba1e3dcf1abedfec4b))
+* **fallback:** update docker/setup-qemu-action ([#483](https://github.com/GlueOps/slackbot-developer-workspaces/issues/483)) ([8ba1968](https://github.com/GlueOps/slackbot-developer-workspaces/commit/8ba196857b365aa8397a773ac001bfb9e01f8bbd))
+* **patch:** update dataaxiom/ghcr-cleanup-action to v1.2.2 #patch ([#484](https://github.com/GlueOps/slackbot-developer-workspaces/issues/484)) ([b2bd9f5](https://github.com/GlueOps/slackbot-developer-workspaces/commit/b2bd9f5970ed77cba496b0b534c4022d6c1b3d8e))
+
 ## [3.41.1](https://github.com/GlueOps/slackbot-developer-workspaces/compare/v3.41.0...v3.41.1) (2026-06-30)
 
 
