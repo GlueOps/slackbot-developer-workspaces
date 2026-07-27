@@ -62,7 +62,17 @@ export default {
                 {
                     "vm_name": serverName,
                     "tags": tags,
-                    "user_data": Buffer.from(configUserData(serverName, cdeToken)).toString('base64'),
+                    "user_data": Buffer.from(configUserData(serverName, cdeToken, {
+                        SERVER_NAME: serverName,
+                        REGION: region,
+                        // Strip the transient ` (Over Allocated)` annotation so the VM
+                        // records the canonical instance type, not a scheduling condition.
+                        // Only affects the env file; the raw value is still sent to /v1/create.
+                        INSTANCE_TYPE: String(instanceType).replace(/\s*\(Over Allocated\)\s*$/, ''),
+                        IMAGE: imageName,
+                        OWNER: userEmail,
+                        CREATED_AT: tags.created_at
+                    })).toString('base64'),
                     "image": imageName,
                     "region_name": region,
                     "instance_type": instanceType
