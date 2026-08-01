@@ -1,7 +1,7 @@
 import logger from '../logger.js';
 import 'dotenv/config';
 import axios from 'axios';
-import configUserData from "../get-user-data.js";
+import configUserData, { TUNNEL_ENDPOINT_PATTERN } from "../get-user-data.js";
 import axiosError from '../axios-error-handler.js';
 import { uniqueNamesGenerator, colors, animals } from 'unique-names-generator';
 import { generateCdeToken } from '../token-generator.js';
@@ -21,6 +21,59 @@ const provisionerDetail = (error) => {
         : '';
 };
 
+// Legacy central sish endpoint. Every VM created before regional tunnels
+// existed connects here, so it is the fallback whenever a region doesn't
+// declare its own tunnel_endpoint (or the lookup fails outright).
+export const DEFAULT_TUNNEL_ENDPOINT = 'tunnels.glueopshosted.com';
+
+// Resolve the sish endpoint for a region from the provisioner's region
+// config. Never throws: creation must not fail (or silently go central-only
+// with a regional URL) because of a transient /v1/regions error. A value that
+// fails the hostname pattern is rejected here, before it fans out to the
+// permanent tag, the access URLs, and cloud-init — those consumers must all
+// agree on one endpoint, and cloud-init would silently drop a non-hostname.
+const getTunnelEndpoint = async (region) => {
+    try {
+        const res = await axios.get(`${process.env.PROVISIONER_URL}/v1/regions`, {
+            headers: { 'Authorization': `${process.env.PROVISIONER_API_TOKEN}` },
+            timeout: 1000 * 30
+        });
+        const endpoint = res.data?.find(r => r.region_name === region)?.tunnel_endpoint?.trim();
+        if (!endpoint) return DEFAULT_TUNNEL_ENDPOINT;
+        if (!TUNNEL_ENDPOINT_PATTERN.test(endpoint)) {
+            log.error(`Region ${region} has invalid tunnel_endpoint "${endpoint}", using default`);
+            return DEFAULT_TUNNEL_ENDPOINT;
+        }
+        return endpoint;
+    } catch (error) {
+        log.error('Failed to resolve tunnel endpoint, using default', axiosError(error));
+        return DEFAULT_TUNNEL_ENDPOINT;
+    }
+};
+
+// Images older than REGIONAL_TUNNEL_MIN_IMAGE_TAG bake a dev() that ignores
+// /etc/glueops/tunnel_endpoint and always tunnels to the legacy central
+// endpoint, so giving such a VM a regional endpoint would advertise dead
+// access URLs. Unset (or an unparseable tag on either side) means regional
+// tunnels stay off entirely — fail-safe until the operator declares which
+// codespaces release can honor them.
+const imageSupportsRegionalTunnel = (imageName) => {
+    const min = process.env.REGIONAL_TUNNEL_MIN_IMAGE_TAG;
+    if (!min) return false;
+    // Shape-check before splitting: Number('') is 0, not NaN, so without this
+    // a typo like "v" or a bare space would parse as [0] and open the gate
+    // for every old image.
+    const parse = tag => /^v?\d+(\.\d+)*$/.test(String(tag).trim())
+        ? String(tag).trim().replace(/^v/, '').split('.').map(Number)
+        : null;
+    const image = parse(imageName), floor = parse(min);
+    if (!image || !floor) return false;
+    for (let i = 0; i < Math.max(image.length, floor.length); i++) {
+        if ((image[i] || 0) !== (floor[i] || 0)) return (image[i] || 0) > (floor[i] || 0);
+    }
+    return true;
+};
+
 export default {
     createServer: async({ client, body, imageName, region, instanceType, description, channel_id, singleClickExperience, userEnv = {}, cloneRepo = null, profileName = null, batch = false }) => {
         //auto generate the name
@@ -31,6 +84,18 @@ export default {
 
         // Generate CDE token if Single-Click Experience is enabled
         const cdeToken = singleClickExperience ? generateCdeToken() : null;
+
+        // The sish tunnel only runs on CDE-enabled VMs, so only resolve the
+        // endpoint for those, and only when the chosen image can actually read
+        // it — otherwise the VM gets the legacy endpoint so its tag and URLs
+        // match where the tunnel really connects. Recorded in tags below as
+        // the permanent truth (the region config may change later).
+        let tunnelEndpoint = null;
+        if (cdeToken) {
+            tunnelEndpoint = imageSupportsRegionalTunnel(imageName)
+                ? await getTunnelEndpoint(region)
+                : DEFAULT_TUNNEL_ENDPOINT;
+        }
 
         // Call the users.info method using the WebClient
         let info;
@@ -70,6 +135,7 @@ export default {
             "description": description || '',
             "created_at": new Date().toISOString(),
             ...(cdeToken && { "cde_token": cdeToken }),
+            ...(tunnelEndpoint && { "tunnel_endpoint": tunnelEndpoint }),
             ...(cloneRepo && { "clone_repo": cloneRepo })
         };
 
@@ -86,6 +152,7 @@ export default {
                         IMAGE: imageName,
                         OWNER: userEmail,
                         CREATED_AT: tags.created_at,
+                        ...(tunnelEndpoint && { TUNNEL_ENDPOINT: tunnelEndpoint }),
                         // Platform-namespaced clone hint; consumed by the codespaces
                         // image's developer-setup.sh at boot (per-create, not persisted).
                         // The default branch is always used.
@@ -118,7 +185,7 @@ export default {
         //return info for connection
         let accessUrl, accessLabel;
         if (cdeToken) {
-            accessUrl = `https://cde-${serverName}.tunnels.glueopshosted.com?folder=/workspaces/glueops&tkn=${cdeToken}`;
+            accessUrl = `https://cde-${serverName}.${tunnelEndpoint}?folder=/workspaces/glueops&tkn=${cdeToken}`;
             accessLabel = 'Cloud Development Environment';
         } else {
             accessUrl = process.env.GUACAMOLE_CONNECTION_URL;

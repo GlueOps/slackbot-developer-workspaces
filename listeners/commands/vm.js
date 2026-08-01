@@ -1,4 +1,4 @@
-import libvirt from '../../util/libvirt/libvirt-server.js';
+import libvirt, { DEFAULT_TUNNEL_ENDPOINT } from '../../util/libvirt/libvirt-server.js';
 import vmCreateModal from '../../user-interface/modals/vm-create.js';
 import vmProfileModal from '../../user-interface/modals/vm-profile.js';
 import buttonBuilder from '../../util/button-builder.js';
@@ -260,7 +260,11 @@ export default {
           // Build header text with optional CDE URL
           let headerText = `Server: ${server.serverName}\nRegion: ${server.region}\nDescription: ${description}\nStatus: ${server.status}\nCreated: ${createdDate}\nRepo: ${cloneRepo || 'None'}`;
           if (cdeToken) {
-              const cdeUrl = `https://cde-${server.serverName}.tunnels.glueopshosted.com?folder=/workspaces/glueops&tkn=${cdeToken}`;
+              // The tunnel_endpoint tag records which sish host this VM's
+              // tunnel actually connects to; VMs created before regional
+              // tunnels have no tag and live on the legacy central endpoint.
+              const tunnelHost = server.tags.tunnel_endpoint || DEFAULT_TUNNEL_ENDPOINT;
+              const cdeUrl = `https://cde-${server.serverName}.${tunnelHost}?folder=/workspaces/glueops&tkn=${cdeToken}`;
               headerText += `\nAccess: <${cdeUrl}|Cloud Development Environment>`;
           }
 
