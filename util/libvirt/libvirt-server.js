@@ -50,7 +50,11 @@ const getTunnelEndpoint = async (region) => {
             headers: { 'Authorization': `${process.env.PROVISIONER_API_TOKEN}` },
             timeout: 1000 * 30
         });
-        const endpoint = res.data?.find(r => r.region_name === region)?.tunnel_endpoint?.trim();
+        // Normalize case and any trailing dot: DNS treats them as equivalent,
+        // but the legacy-vs-regional split in cdeAccessUrl and on the VM is an
+        // exact string comparison against DEFAULT_TUNNEL_ENDPOINT.
+        const endpoint = res.data?.find(r => r.region_name === region)
+            ?.tunnel_endpoint?.trim().toLowerCase().replace(/\.$/, '');
         if (!endpoint) return DEFAULT_TUNNEL_ENDPOINT;
         if (!TUNNEL_ENDPOINT_PATTERN.test(endpoint)) {
             log.error(`Region ${region} has invalid tunnel_endpoint "${endpoint}", using default`);
@@ -63,27 +67,51 @@ const getTunnelEndpoint = async (region) => {
     }
 };
 
+// Parse a codespaces release tag into its numeric core and optional
+// prerelease suffix. Accepts the repo's real tag shapes: vX.Y.Z and
+// prereleases like vX.Y.Z-RC1 (nonprod's image picker serves those). The
+// strict shape check matters: Number('') is 0, not NaN, so a typo like "v"
+// would otherwise parse as [0] and open the gate for every old image.
+const parseImageTag = (tag) => {
+    const m = /^v?(\d+(?:\.\d+)*)(?:-([0-9a-z.-]+))?$/i.exec(String(tag).trim());
+    if (!m) return null;
+    return { core: m[1].split('.').map(Number), pre: m[2]?.toLowerCase() ?? null };
+};
+
+const compareImageTags = (a, b) => {
+    for (let i = 0; i < Math.max(a.core.length, b.core.length); i++) {
+        const d = (a.core[i] || 0) - (b.core[i] || 0);
+        if (d) return d;
+    }
+    // Equal numeric cores: a stable release outranks its own prereleases (an
+    // RC may predate fixes in the stable cut); prereleases compare naturally
+    // so RC2 < RC10.
+    if (!a.pre && !b.pre) return 0;
+    if (!a.pre) return 1;
+    if (!b.pre) return -1;
+    return a.pre.localeCompare(b.pre, undefined, { numeric: true });
+};
+
 // Images older than REGIONAL_TUNNEL_MIN_IMAGE_TAG bake a dev() that ignores
 // /etc/glueops/tunnel_endpoint and always tunnels to the legacy central
 // endpoint, so giving such a VM a regional endpoint would advertise dead
-// access URLs. Unset (or an unparseable tag on either side) means regional
-// tunnels stay off entirely — fail-safe until the operator declares which
-// codespaces release can honor them.
+// access URLs. Unset means regional tunnels stay off entirely; unparseable
+// tags fail safe to legacy but are logged loudly, because a set-but-broken
+// gate must not be indistinguishable from the feature being off.
 const imageSupportsRegionalTunnel = (imageName) => {
     const min = process.env.REGIONAL_TUNNEL_MIN_IMAGE_TAG;
     if (!min) return false;
-    // Shape-check before splitting: Number('') is 0, not NaN, so without this
-    // a typo like "v" or a bare space would parse as [0] and open the gate
-    // for every old image.
-    const parse = tag => /^v?\d+(\.\d+)*$/.test(String(tag).trim())
-        ? String(tag).trim().replace(/^v/, '').split('.').map(Number)
-        : null;
-    const image = parse(imageName), floor = parse(min);
-    if (!image || !floor) return false;
-    for (let i = 0; i < Math.max(image.length, floor.length); i++) {
-        if ((image[i] || 0) !== (floor[i] || 0)) return (image[i] || 0) > (floor[i] || 0);
+    const floor = parseImageTag(min);
+    if (!floor) {
+        log.error(`REGIONAL_TUNNEL_MIN_IMAGE_TAG "${min}" is not a parseable release tag; regional tunnels stay OFF`);
+        return false;
     }
-    return true;
+    const image = parseImageTag(imageName);
+    if (!image) {
+        log.error(`Image tag "${imageName}" is not a parseable release tag; VM falls back to the legacy tunnel endpoint`);
+        return false;
+    }
+    return compareImageTags(image, floor) >= 0;
 };
 
 export default {
