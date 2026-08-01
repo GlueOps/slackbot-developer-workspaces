@@ -1,5 +1,17 @@
 # Changelog
 
+## [4.2.0](https://github.com/GlueOps/slackbot-developer-workspaces/compare/v4.1.0...v4.2.0) (2026-08-01)
+
+
+### Features
+
+* adapt to waggle-backed proxmox regions ([#497](https://github.com/GlueOps/slackbot-developer-workspaces/issues/497)) ([9bd03d0](https://github.com/GlueOps/slackbot-developer-workspaces/commit/9bd03d0ed87beec3aac50c5a60d1ca2bb829aaaf))
+
+
+### Miscellaneous Chores
+
+* add Apache-2.0 LICENSE ([#494](https://github.com/GlueOps/slackbot-developer-workspaces/issues/494)) ([b9af77b](https://github.com/GlueOps/slackbot-developer-workspaces/commit/b9af77b88cae4419ebbb8c3392745dfc4a504228))
+
 ## [4.1.0](https://github.com/GlueOps/slackbot-developer-workspaces/compare/v4.0.0...v4.1.0) (2026-07-27)
 
 
