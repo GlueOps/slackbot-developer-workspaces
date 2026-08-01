@@ -3,7 +3,7 @@ import { Modal, Blocks, Elements, Bits } from 'slack-block-builder';
 // Env vars are NOT entered on this modal — they come solely from a selected profile
 // (managed via `/vm profile`; the recommended-keys guidance now lives in the profile-create
 // modal). This modal only picks a profile; the merge happens in listeners/views/vm-create-modal.js.
-export default function vmCreateModal({ regions = [], images = [], servers = [], metaData, vmCount = 1, regionStats = null, selectedRegion = null, profiles = [], selectedProfile = null, selectedImage = null, selectedServer = null, descriptions = [], cloneRepos = [], singleClick = false } = {}) {
+export default function vmCreateModal({ regions = [], images = [], servers = [], metaData, vmCount = 1, selectedRegion = null, profiles = [], selectedProfile = null, selectedImage = null, selectedServer = null, descriptions = [], cloneRepos = [], singleClick = false } = {}) {
   const title = vmCount > 1 ? `Create ${vmCount} VMs` : 'Create VM';
 
   // Per-VM fields: each VM gets its own description and repo to clone (different VMs are
@@ -70,14 +70,6 @@ export default function vmCreateModal({ regions = [], images = [], servers = [],
           )
       ),
 
-      ...(regionStats != null
-        ? [Blocks.Context().elements(
-            `*Total:*       ${regionStats.total_vcpus} vCPU  •  ${regionStats.total_memory_gb}GB RAM  •  ${regionStats.total_storage_gb}GB Disk\n` +
-            `*Unallocated:* ${regionStats.free_vcpus} vCPU  •  ${regionStats.free_memory_gb}GB RAM  •  ${regionStats.free_storage_gb}GB Disk\n` +
-            `${regionStats.cpu_pct >= 91 ? '🔴' : regionStats.cpu_pct >= 50 ? '🟡' : '🟢'} *Current load:* ${regionStats.cpu_pct}% CPU  •  ${regionStats.ram_pct}% RAM`
-          )]
-        : []),
-
       Blocks.Input({ label: 'Image', blockId: 'image' }).element(
         Elements.StaticSelect({ actionId: 'image' })
           .placeholder('Select an image')
@@ -100,12 +92,37 @@ export default function vmCreateModal({ regions = [], images = [], servers = [],
           .placeholder('Select a server type')
           .options(
             servers.length > 0
-              ? servers.map(server =>
-                  Bits.Option({ text: server.instance_type, value: server.instance_type })
-                )
-              : [Bits.Option({ text: 'Select a region first', value: 'placeholder' })]
+              // Spell the specs out from the payload — slot names are free-form
+              // in Waggle, so the name alone can't be relied on to carry them.
+              // The option VALUE stays the bare instance_type: it round-trips
+              // to the provisioner as the slot identifier.
+              ? servers.map(server => {
+                  const specs = [server.vcpus, server.memory_mb, server.storage_mb].every(Number.isFinite)
+                    ? ` (${server.vcpus} vCPU • ${Math.round(server.memory_mb / 1024)} GB RAM • ${Math.round(server.storage_mb / 1024)} GB disk)`
+                    : '';
+                  // Slack caps option text at 75 chars; prefer dropping the
+                  // specs over a hard API error on a long slot name.
+                  const label = `${server.instance_type}${specs}`;
+                  return Bits.Option({
+                    text: label.length <= 75 ? label : server.instance_type.slice(0, 75),
+                    value: server.instance_type
+                  });
+                })
+              // Keep value 'placeholder' — the submit handler rejects it with an inline error
+              : [Bits.Option({
+                  text: selectedRegion ? 'No server types available' : 'Select a region first',
+                  value: 'placeholder'
+                })]
           )
       ),
+
+      // The provisioner only lists server types that can be placed right now, so an
+      // empty list for a selected region means the region is at capacity.
+      ...(selectedRegion && servers.length === 0
+        ? [Blocks.Context().elements(
+            `:warning: *${selectedRegion}* is at capacity — no server types can be placed right now. Try another region or check back later.`
+          )]
+        : []),
 
       ...perVmBlocks,
 

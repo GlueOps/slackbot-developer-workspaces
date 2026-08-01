@@ -9,6 +9,18 @@ import { randomBytes } from 'crypto';
 
 const log = logger();
 
+// The provisioner's 4xx responses carry an actionable `detail` string (e.g.
+// region at capacity, VM not found). Surface it so users can self-serve
+// instead of guessing. 5xx bodies always carry a generic boilerplate detail
+// and FastAPI validation errors are arrays — both return an empty string.
+const provisionerDetail = (error) => {
+    const status = error?.response?.status;
+    const detail = error?.response?.data?.detail;
+    return typeof detail === 'string' && detail && status >= 400 && status < 500
+        ? `\nReason: ${detail}`
+        : '';
+};
+
 export default {
     createServer: async({ client, body, imageName, region, instanceType, description, channel_id, singleClickExperience, userEnv = {}, cloneRepo = null, profileName = null, batch = false }) => {
         //auto generate the name
@@ -96,7 +108,7 @@ export default {
                 await client.chat.postEphemeral({
                 channel: channel_id,
                 user: body.user.id,
-                text: `Failed to create server: ${serverName}\nDescription: ${descriptionText}`
+                text: `Failed to create server: ${serverName}\nDescription: ${descriptionText}${provisionerDetail(error)}`
                 });
             }
 
@@ -158,7 +170,7 @@ export default {
             app.client.chat.postEphemeral({
               channel: channel_id,
               user: user_id,
-              text: `Failed to delete Server: ${serverName}.`
+              text: `Failed to delete Server: ${serverName}.${provisionerDetail(error)}`
             });
         } 
     },
@@ -237,7 +249,7 @@ export default {
             app.client.chat.postEphemeral({
               channel: channel_id,
               user: user_id,
-              text: `Failed to start Server: ${serverName}.`
+              text: `Failed to start Server: ${serverName}.${provisionerDetail(error)}`
             });
         } 
     },
@@ -267,7 +279,7 @@ export default {
             app.client.chat.postEphemeral({
               channel: channel_id,
               user: user_id,
-              text: `Failed to stop Server: ${serverName}.`
+              text: `Failed to stop Server: ${serverName}.${provisionerDetail(error)}`
             });
         } 
     },
@@ -300,7 +312,7 @@ export default {
             client.chat.postEphemeral({
               channel: channel_id,
               user: user_id,
-              text: `Failed to edit Server: ${serverName}.`
+              text: `Failed to edit Server: ${serverName}.${provisionerDetail(error)}`
             });
         } 
     }

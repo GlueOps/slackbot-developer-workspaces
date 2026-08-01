@@ -4,7 +4,8 @@ Operational reference for AI agents working in this repo. Read alongside CLAUDE.
 
 ## Connected Repos
 
-- **[provisioner](https://github.com/GlueOps/provisioner)** — the backend API this bot talks to. Its [`.ai/AGENTS.md`](https://github.com/GlueOps/provisioner/blob/main/.ai/AGENTS.md) documents the full VM lifecycle, Proxmox region name format, how `(Over Allocated)` is appended to instance types, cloud-init flow, and all endpoint behaviour.
+- **[provisioner](https://github.com/GlueOps/provisioner)** — the backend API this bot talks to. Its [`.ai/AGENTS.md`](https://github.com/GlueOps/provisioner/blob/main/.ai/AGENTS.md) documents the full VM lifecycle, the Waggle-backed Proxmox region model (one region per Waggle datacenter; Waggle picks the hypervisor), cloud-init flow, and all endpoint behaviour.
+- **[waggle](https://github.com/glueops/waggle)** — the placement oracle behind Proxmox regions. Instance types are Waggle *slots*; the provisioner pre-filters them against Waggle's hypervisor ledger so the bot only ever sees placeable ones. The bot never talks to Waggle directly — only through the provisioner.
 
 ---
 
@@ -55,7 +56,7 @@ All calls go to `process.env.PROVISIONER_URL` with `Authorization: ${process.env
 
 | Endpoint | Method | Called from | Purpose |
 |---|---|---|---|
-| `/v1/regions` | GET | `vm.js`, `vm-region.js` | List available regions + instance types. Proxmox regions include capacity/load fields. |
+| `/v1/regions` | GET | `vm.js`, `vm-region.js` | List available regions + instance types. Proxmox regions list only currently-placeable Waggle slots. |
 | `/v1/get-images` | GET | `vm.js`, `vm-region.js` | List available VM images |
 | `/v1/create` | POST | `libvirt-server.js` | Create a VM |
 | `/v1/list` | GET | `libvirt-server.js` | List all VMs (filtered to caller's email client-side) |
@@ -63,6 +64,8 @@ All calls go to `process.env.PROVISIONER_URL` with `Authorization: ${process.env
 | `/v1/stop` | POST | `libvirt-server.js` | Stop a VM |
 | `/v1/delete` | DELETE | `libvirt-server.js` | Delete a VM |
 | `/v1/edit-tags` | POST | `libvirt-server.js` | Update VM tags/description |
+
+Failure messages append `Reason: <detail>` when the provisioner returns a **4xx** with a string `detail` body (e.g. 409 region-at-capacity, 404 VM-not-found) — see `provisionerDetail` in `libvirt-server.js`. 5xx bodies (generic boilerplate) and FastAPI validation arrays are never surfaced.
 
 ### `/v1/regions` response shape
 
@@ -78,18 +81,18 @@ All calls go to `process.env.PROVISIONER_URL` with `Authorization: ${process.env
     "cpu_pct": null, "ram_pct": null
   },
   {
-    "region_name": "proxmox-cluster-1-pve-node-01",
+    "region_name": "proxmox-cluster-1",
     "enabled": true,
-    "available_instance_types": [{ "instance_type": "2vcpu-8gb-32ssd (Over Allocated)", "vcpus": 2, "memory_mb": 8192, "storage_mb": 32000 }],
-    "total_vcpus": 40, "free_vcpus": 32,
-    "total_memory_gb": 128, "free_memory_gb": 96,
-    "total_storage_gb": 2000, "free_storage_gb": 1800,
-    "cpu_pct": 15, "ram_pct": 25
+    "available_instance_types": [{ "instance_type": "2vcpu-8gb-32ssd", "vcpus": 2, "memory_mb": 8192, "storage_mb": 32768 }],
+    "total_vcpus": null, "free_vcpus": null,
+    "total_memory_gb": null, "free_memory_gb": null,
+    "total_storage_gb": null, "free_storage_gb": null,
+    "cpu_pct": null, "ram_pct": null
   }
 ]
 ```
 
-Libvirt regions have `null` for all capacity/load fields. Proxmox regions have integers.
+The capacity fields are always `null` (legacy schema leftovers) — the bot ignores them. A Proxmox region is one Waggle datacenter (whole cluster) and its `available_instance_types` are the Waggle slots that can *currently* be placed: the provisioner pre-filters against Waggle's hypervisor ledger, so a listed slot is creatable right now.
 
 ---
 
@@ -103,13 +106,13 @@ These are load-bearing. Do not change without understanding the impact.
 
 3. **User identity is always resolved to email** via `client.users.info({ user: body.user.id })`. The email is stored as `owner` in VM tags. `listServers` filters VMs client-side by matching `server.tags.owner === userEmail`.
 
-4. **`regionStats` is `null` for libvirt, populated for Proxmox** — the guard `regionObj.cpu_pct != null` in `vm-region.js` detects which backend a region belongs to. The modal's `regionStats != null` check controls whether the capacity/load context block renders. Do not change this guard without testing both backends.
+4. **No capacity UI — the instance-type list IS the availability signal** — the provisioner only lists instance types that can actually be placed (Proxmox: Waggle slots with room on some hypervisor). The bot renders the list as-is; do not add client-side capacity math or re-introduce a stats block from the always-`null` capacity fields.
 
-5. **`(Over Allocated)` suffix passes through unchanged** — the provisioner appends ` (Over Allocated)` to instance type names when a node is under-resourced. The slackbot displays this label as-is, sends it back to the provisioner as the `instance_type` value, and writes it verbatim to `GLUEOPS_CDE_INSTANCE_TYPE` in the cloud-init env file. The provisioner strips the suffix before VM creation. Do not strip it in the slackbot.
+5. **Instance-type *values* round-trip unchanged; *labels* are enriched** — for Proxmox regions the `instance_type` value is a Waggle slot name; the provisioner resolves it back to a slot at create time. The dropdown option **value** is the bare slot name and round-trips verbatim (also written verbatim to `GLUEOPS_CDE_INSTANCE_TYPE` in the cloud-init env file); the option **label** appends specs from the payload — `name (N vCPU • N GB RAM • N GB disk)` — with a 75-char Slack-limit fallback to the bare name (`vm-create.js`). If a datacenter is full, `/v1/create` fails cleanly (Waggle placement is all-or-nothing) — there is no "(Over Allocated)" suffix.
 
 6. **`\n` in a single `Bits.Mrkdwn()` element for multi-line context blocks** — Slack context blocks render multiple `elements` inline (side-by-side). To get separate lines, use a single `Bits.Mrkdwn()` element with `\n` separating the lines. Do not split into separate elements.
 
-7. **Region names are stable identifiers** — Proxmox region names are bare `{cluster}-{node}` strings (e.g. `proxmox-cluster-1-pve-node-01`). Libvirt region names are static strings from config. Region names are used as both the dropdown label (`text`) and the value (`value`) sent back to the provisioner. They round-trip unchanged.
+7. **Region names are stable identifiers** — a Proxmox region name is the Waggle datacenter / cluster name (e.g. `proxmox-cluster-1`); the specific hypervisor is chosen by Waggle at create time and never appears in the region name. Libvirt region names are static strings from config. Region names are used as both the dropdown label (`text`) and the value (`value`) sent back to the provisioner. They round-trip unchanged.
 
 8. **Modal state passes via `privateMetaData`** — JSON-stringified. Set on modal open, read in view handlers via `JSON.parse(view.private_metadata)`. Contains at minimum `{ channel_id, vmCount }`; the create modal also carries `profiles` (names, so the picker survives re-render); edit flows add `{ serverName, region, tags }`; the profile modal carries `{ channel_id, name }` where `name` present ⇒ editing.
 
@@ -136,19 +139,22 @@ These are load-bearing. Do not change without understanding the impact.
   → vm.js: opens loading modal
   → fetches /v1/regions + /v1/get-images in parallel
   → loads the user's profile names from S3 (best-effort)
-  → updates modal via vmCreateModal({ regions, images, servers: [], regionStats: null, profiles })
+  → updates modal via vmCreateModal({ regions, images, servers: [], profiles })
      (profile names also stashed in privateMetaData so the picker survives re-render)
 
-Modal fields: [profile picker if any, else a "/vm profile new" hint] · region · [Proxmox stats]
+Modal fields: [profile picker if any, else a "/vm profile new" hint] · region
               · image · server type · per-VM {description, repo} · single-click
               (NO env textarea — env vars come only from the selected profile)
 
 User selects a region (dispatch action fires)
   → vm-region.js: re-fetches /v1/regions + /v1/get-images
-  → finds selected regionObj, extracts instance types + regionStats
+  → finds selected regionObj, extracts its instance types (already pre-filtered
+     by the provisioner to what's currently placeable); zero instance types for a
+     selected region renders a ":warning: region is at capacity" context note
+     (submit stays blocked via the 'placeholder' option value)
   → re-seeds image, descriptions, repos, single-click, profile from view.state.values
      (so switching regions does NOT wipe input; server type intentionally resets)
-  → updates modal via vmCreateModal({ ..., regionStats, profiles, selected* })
+  → updates modal via vmCreateModal({ ..., profiles, selected* })
 
 User submits modal
   → vm-create-modal.js: validate each repo (parse-repo) and reject placeholder
