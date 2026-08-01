@@ -26,6 +26,18 @@ const provisionerDetail = (error) => {
 // declare its own tunnel_endpoint (or the lookup fails outright).
 export const DEFAULT_TUNNEL_ENDPOINT = 'tunnels.glueopshosted.com';
 
+// Access URL for a CDE VM. The legacy central sish appends the SSH username
+// to a "cde" bind (cde-<name>.tunnels...); regional instances let the VM
+// bind its bare hostname (<name>.<region>.tunnels.cde...). The VM-side rule
+// in the codespaces image's developer-setup.sh derives the bind from the
+// same endpoint value, so URL and tunnel can never disagree.
+export const cdeAccessUrl = (serverName, tunnelEndpoint, cdeToken) => {
+    const host = tunnelEndpoint === DEFAULT_TUNNEL_ENDPOINT
+        ? `cde-${serverName}.${tunnelEndpoint}`
+        : `${serverName}.${tunnelEndpoint}`;
+    return `https://${host}?folder=/workspaces/glueops&tkn=${cdeToken}`;
+};
+
 // Resolve the sish endpoint for a region from the provisioner's region
 // config. Never throws: creation must not fail (or silently go central-only
 // with a regional URL) because of a transient /v1/regions error. A value that
@@ -185,7 +197,7 @@ export default {
         //return info for connection
         let accessUrl, accessLabel;
         if (cdeToken) {
-            accessUrl = `https://cde-${serverName}.${tunnelEndpoint}?folder=/workspaces/glueops&tkn=${cdeToken}`;
+            accessUrl = cdeAccessUrl(serverName, tunnelEndpoint, cdeToken);
             accessLabel = 'Cloud Development Environment';
         } else {
             accessUrl = process.env.GUACAMOLE_CONNECTION_URL;

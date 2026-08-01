@@ -1,4 +1,4 @@
-import libvirt, { DEFAULT_TUNNEL_ENDPOINT } from '../../util/libvirt/libvirt-server.js';
+import libvirt, { DEFAULT_TUNNEL_ENDPOINT, cdeAccessUrl } from '../../util/libvirt/libvirt-server.js';
 import vmCreateModal from '../../user-interface/modals/vm-create.js';
 import vmProfileModal from '../../user-interface/modals/vm-profile.js';
 import buttonBuilder from '../../util/button-builder.js';
@@ -264,7 +264,7 @@ export default {
               // tunnel actually connects to; VMs created before regional
               // tunnels have no tag and live on the legacy central endpoint.
               const tunnelHost = server.tags.tunnel_endpoint || DEFAULT_TUNNEL_ENDPOINT;
-              const cdeUrl = `https://cde-${server.serverName}.${tunnelHost}?folder=/workspaces/glueops&tkn=${cdeToken}`;
+              const cdeUrl = cdeAccessUrl(server.serverName, tunnelHost, cdeToken);
               headerText += `\nAccess: <${cdeUrl}|Cloud Development Environment>`;
           }
 
