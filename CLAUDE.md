@@ -7,7 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What This Project Does
 
-A Slack bot (Bolt.js, HTTP mode) that lets developers provision and manage VMs via slash commands. It talks to a [GlueOps Provisioner](https://github.com/GlueOps/provisioner) REST API that supports two backends: **libvirt** (bare-metal hypervisors over SSH) and **Proxmox VE** (via the Proxmox REST API). Users create, list, start, stop, delete, and edit VMs entirely through Slack modals and ephemeral messages.
+A Slack bot (Bolt.js, HTTP mode) that lets developers provision and manage VMs via slash commands. It talks to a [GlueOps Provisioner](https://github.com/GlueOps/provisioner) REST API that supports two backends: **libvirt** (bare-metal hypervisors over SSH) and **Waggle-backed Proxmox VE** ([Waggle](https://github.com/glueops/waggle) is the placement oracle that decides which Proxmox hypervisor each VM lands on; the provisioner then creates the VM via the Proxmox REST API). Users create, list, start, stop, delete, and edit VMs entirely through Slack modals and ephemeral messages.
 
 On create, a developer can auto-clone a **GitHub repo** and apply a saved **profile** — a reusable bundle of env vars stored per-user in S3, encrypted at rest. **Environment variables are set only via profiles** (the create modal has no env textarea). Profiles are managed with `/vm profile` (list / new / delete, with Edit/Copy buttons).
 
@@ -46,7 +46,7 @@ There are no automated tests or linting tools configured.
 - `axios-error-handler.js` — normalises axios errors for logging.
 
 **UI builders** (`user-interface/modals/`):
-- `vm-create.js` — VM creation modal. Accepts `regionStats` for the Proxmox capacity/load context block, an optional profile picker (or a hint to run `/vm profile new` when the user has none), and per-VM description + repo inputs. **No env textarea** — env vars come from the selected profile. Takes initial-value params so a region change rebuilds it without losing input.
+- `vm-create.js` — VM creation modal. Accepts an optional profile picker (or a hint to run `/vm profile new` when the user has none) and per-VM description + repo inputs. **No env textarea** — env vars come from the selected profile. Takes initial-value params so a region change rebuilds it without losing input.
 - `vm-edit.js` — VM description edit modal.
 - `vm-profile.js` — create/update a VM profile (name + env vars); a new profile pre-seeds a recommended-keys guidance template in the env textarea. The name is locked (rendered as static text) when editing.
 
@@ -60,9 +60,7 @@ There are no automated tests or linting tools configured.
 
 **Dispatch action on region select:** The region dropdown in `vm-create.js` has `.dispatchAction(true)`. When a user picks a region, Slack fires the `region` action, handled by `listeners/actions/vm-region.js`. This re-fetches `/v1/regions` and `/v1/get-images` fresh and updates the modal in-place with instance types and — for Proxmox regions — a capacity/load context block.
 
-**Proxmox regionStats:** `/v1/regions` returns capacity/load as separate fields on Proxmox region objects (`total_vcpus`, `free_vcpus`, `total_memory_gb`, `free_memory_gb`, `total_storage_gb`, `free_storage_gb`, `cpu_pct`, `ram_pct`). Libvirt regions return `null` for all these fields. `vm-region.js` builds a `regionStats` object when `cpu_pct != null`, passes it to the modal builder, which renders a three-line context block with emoji-coded load. When `regionStats` is `null` (libvirt), the context block is omitted entirely.
-
-**Over Allocated instance types:** The provisioner appends ` (Over Allocated)` to instance type names when a node's free capacity is less than the type requires. The slackbot passes this string through as-is — as the dropdown label, as the value sent back to the provisioner on create, and as `GLUEOPS_CDE_INSTANCE_TYPE` in the cloud-init env file. The provisioner strips the suffix before lookup.
+**Proxmox instance types are pre-filtered by availability:** each Proxmox region is one Waggle datacenter (a whole cluster — Waggle picks the node), and its `available_instance_types` from `/v1/regions` lists only the Waggle slots that can currently be placed. The bot renders the list with no capacity/load UI — if a slot is in the dropdown, it can be created right now. Dropdown labels append the slot's specs from the payload (`2vcpu-8gb-32ssd (2 vCPU • 8 GB RAM • 32 GB disk)`), while the option value stays the bare slot name and round-trips to the provisioner verbatim. If capacity races away between render and submit, `/v1/create` fails cleanly (Waggle placement is all-or-nothing); there is no "Over Allocated" suffix on instance types anymore.
 
 **User identity:** All operations resolve the Slack user to their email via `client.users.info({ user: body.user.id })`. The email is stored as `owner` in VM tags and used to filter VMs on list.
 

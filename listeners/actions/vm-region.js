@@ -71,20 +71,11 @@ export default async function vmRegionCallback({ ack, body, client }) {
     );
   }
 
+  // The provisioner only lists instance types that can actually be placed right
+  // now (Proxmox regions: Waggle slots with room on some hypervisor), so the
+  // dropdown needs no extra capacity context.
   const regionObj = regions.find(r => r.region_name === selectedRegion);
   let servers = regionObj ? regionObj.available_instance_types : [];
-  const regionStats = regionObj != null && regionObj.cpu_pct != null
-    ? {
-        total_vcpus: regionObj.total_vcpus,
-        total_memory_gb: regionObj.total_memory_gb,
-        total_storage_gb: regionObj.total_storage_gb,
-        free_vcpus: regionObj.free_vcpus,
-        free_memory_gb: regionObj.free_memory_gb,
-        free_storage_gb: regionObj.free_storage_gb,
-        cpu_pct: regionObj.cpu_pct,
-        ram_pct: regionObj.ram_pct,
-      }
-    : null;
 
   // When creating multiple VMs, filter instance types by RAM
   if (vmCount > 1) {
@@ -113,7 +104,7 @@ export default async function vmRegionCallback({ ack, body, client }) {
   await client.views.update({
     view_id: body.view.id,
     view: vmModal({
-      regions, images, servers, metaData, vmCount, regionStats, selectedRegion,
+      regions, images, servers, metaData, vmCount, selectedRegion,
       profiles, selectedProfile, selectedImage, descriptions, cloneRepos, singleClick
     })
   });

@@ -23,7 +23,7 @@ export default async function vmCreateModalCallback({ ack, view, body, client })
   // first", "No images available") and a missing selection from reaching the provisioner.
   if (!selectedRegion || selectedRegion === 'placeholder') errors.region = 'Please select a region.';
   if (!selectedImage || selectedImage === 'placeholder') errors.image = 'Please select an image.';
-  if (!selectedServer || selectedServer === 'placeholder') errors.server = 'Please pick a region first, then a server type.';
+  if (!selectedServer || selectedServer === 'placeholder') errors.server = 'Please pick a server type (if none are listed, the region is at capacity — try another region).';
 
   // Extract per-VM description + repo. Repo is validated and normalised to a canonical
   // https://github.com/owner/repo.git URL; blank is allowed (optional).
