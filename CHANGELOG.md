@@ -1,5 +1,16 @@
 # Changelog
 
+## [4.3.0](https://github.com/GlueOps/slackbot-developer-workspaces/compare/v4.2.0...v4.3.0) (2026-08-02)
+
+
+### Features
+
+* regional tunnel endpoints for CDE tunnels and access URLs ([#499](https://github.com/GlueOps/slackbot-developer-workspaces/issues/499)) ([4c17466](https://github.com/GlueOps/slackbot-developer-workspaces/commit/4c1746691c1f87256b1e29e528f8e4b3cef6e201))
+* update docker/build-push-action to v7.3.0 #minor ([#496](https://github.com/GlueOps/slackbot-developer-workspaces/issues/496)) ([023071e](https://github.com/GlueOps/slackbot-developer-workspaces/commit/023071eebee2936ba5ab75d20dd3cd4ae2092690))
+* update docker/login-action to v4.3.0 #minor ([#498](https://github.com/GlueOps/slackbot-developer-workspaces/issues/498)) ([1852762](https://github.com/GlueOps/slackbot-developer-workspaces/commit/1852762e2e7084191980c54981d366c3d0fc570b))
+* update docker/metadata-action to v6.2.0 #minor ([#500](https://github.com/GlueOps/slackbot-developer-workspaces/issues/500)) ([5ba26f5](https://github.com/GlueOps/slackbot-developer-workspaces/commit/5ba26f53298f8f4edd8bbe2a24303157686123db))
+* update docker/setup-buildx-action to v4.2.0 #minor ([#501](https://github.com/GlueOps/slackbot-developer-workspaces/issues/501)) ([d1462d6](https://github.com/GlueOps/slackbot-developer-workspaces/commit/d1462d640d68901a7307adf3679330c77ff68d09))
+
 ## [4.2.0](https://github.com/GlueOps/slackbot-developer-workspaces/compare/v4.1.0...v4.2.0) (2026-08-01)
 
 
