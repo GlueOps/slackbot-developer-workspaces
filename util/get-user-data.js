@@ -3,6 +3,13 @@
     that is used in the cloud init script for the VMs.
 */
 
+// Bare-hostname shape for a sish tunnel endpoint (no scheme, port, path, or
+// userinfo). Shared with libvirt-server.js, which validates at resolution
+// time: every consumer of the value (permanent VM tag, access URLs, the
+// cloud-init file write below) must accept or reject it identically, or a VM
+// ends up tunneled to one host while its advertised URLs point at another.
+export const TUNNEL_ENDPOINT_PATTERN = /^[a-z0-9][a-z0-9.-]*$/i;
+
 export default function configUserData(serverName, cdeToken = null, cdeEnv = {}, userEnv = {}) {
     let userData = `
         #cloud-config
@@ -18,7 +25,22 @@ export default function configUserData(serverName, cdeToken = null, cdeEnv = {},
     if (cdeToken) {
         userData += `
             - ['mkdir', '-p', '/etc/glueops']
-            - ['bash', '-c', 'echo "${cdeToken}" > /etc/glueops/cde_token && chmod 644 /etc/glueops/cde_token']
+            - ['bash', '-c', 'echo "${cdeToken}" > /etc/glueops/cde_token && chmod 644 /etc/glueops/cde_token']`;
+
+        // Regional sish endpoint, world-readable like cde_token because the
+        // host-side dev() (developer-setup.sh) reads it as the vscode user —
+        // codespace.env is root-only so it can't serve this. Absent file ->
+        // dev() falls back to the legacy central tunnel, which is also why the
+        // hostname is re-validated here (defence-in-depth; the resolver
+        // already enforced it): a value that can't round-trip safely through
+        // this runcmd is dropped rather than escaped.
+        const tunnelEndpoint = cdeEnv?.TUNNEL_ENDPOINT;
+        if (tunnelEndpoint && TUNNEL_ENDPOINT_PATTERN.test(tunnelEndpoint)) {
+            userData += `
+            - ['bash', '-c', 'echo "${tunnelEndpoint}" > /etc/glueops/tunnel_endpoint && chmod 644 /etc/glueops/tunnel_endpoint']`;
+        }
+
+        userData += `
             - ['su', '-', 'vscode', '-c', 'source ~/.glueopsrc; dev || true']`;
     }
 
