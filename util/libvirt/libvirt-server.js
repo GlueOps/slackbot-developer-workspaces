@@ -21,97 +21,30 @@ const provisionerDetail = (error) => {
         : '';
 };
 
-// Legacy central sish endpoint. Every VM created before regional tunnels
-// existed connects here, so it is the fallback whenever a region doesn't
-// declare its own tunnel_endpoint (or the lookup fails outright).
-export const DEFAULT_TUNNEL_ENDPOINT = 'tunnels.glueopshosted.com';
-
-// Access URL for a CDE VM. The legacy central sish appends the SSH username
-// to a "cde" bind (cde-<name>.tunnels...); regional instances let the VM
-// bind its bare hostname (<name>.<region>.tunnels.cde...). The VM-side rule
-// in the codespaces image's developer-setup.sh derives the bind from the
-// same endpoint value, so URL and tunnel can never disagree.
-export const cdeAccessUrl = (serverName, tunnelEndpoint, cdeToken) => {
-    const host = tunnelEndpoint === DEFAULT_TUNNEL_ENDPOINT
-        ? `cde-${serverName}.${tunnelEndpoint}`
-        : `${serverName}.${tunnelEndpoint}`;
-    return `https://${host}?folder=/workspaces/glueops&tkn=${cdeToken}`;
-};
+// Access URL for a CDE VM: the VM binds its bare hostname at its region's
+// sish endpoint, so the URL is <name>.<region>.tunnels.cde... The VM-side
+// bind in the codespaces image's developer-setup.sh matches, so URL and
+// tunnel cannot disagree.
+export const cdeAccessUrl = (serverName, tunnelEndpoint, cdeToken) =>
+    `https://${serverName}.${tunnelEndpoint}?folder=/workspaces/glueops&tkn=${cdeToken}`;
 
 // Resolve the sish endpoint for a region from the provisioner's region
-// config. Never throws: creation must not fail (or silently go central-only
-// with a regional URL) because of a transient /v1/regions error. A value that
-// fails the hostname pattern is rejected here, before it fans out to the
-// permanent tag, the access URLs, and cloud-init — those consumers must all
-// agree on one endpoint, and cloud-init would silently drop a non-hostname.
+// config. Throws if the region has no usable endpoint: with no central
+// tunnel left to fall back to, a VM without a real endpoint would advertise
+// a dead URL, so failing the creation loudly is the only honest outcome.
 const getTunnelEndpoint = async (region) => {
-    try {
-        const res = await axios.get(`${process.env.PROVISIONER_URL}/v1/regions`, {
-            headers: { 'Authorization': `${process.env.PROVISIONER_API_TOKEN}` },
-            timeout: 1000 * 30
-        });
-        // Normalize case and any trailing dot: DNS treats them as equivalent,
-        // but the legacy-vs-regional split in cdeAccessUrl and on the VM is an
-        // exact string comparison against DEFAULT_TUNNEL_ENDPOINT.
-        const endpoint = res.data?.find(r => r.region_name === region)
-            ?.tunnel_endpoint?.trim().toLowerCase().replace(/\.$/, '');
-        if (!endpoint) return DEFAULT_TUNNEL_ENDPOINT;
-        if (!TUNNEL_ENDPOINT_PATTERN.test(endpoint)) {
-            log.error(`Region ${region} has invalid tunnel_endpoint "${endpoint}", using default`);
-            return DEFAULT_TUNNEL_ENDPOINT;
-        }
-        return endpoint;
-    } catch (error) {
-        log.error('Failed to resolve tunnel endpoint, using default', axiosError(error));
-        return DEFAULT_TUNNEL_ENDPOINT;
+    const res = await axios.get(`${process.env.PROVISIONER_URL}/v1/regions`, {
+        headers: { 'Authorization': `${process.env.PROVISIONER_API_TOKEN}` },
+        timeout: 1000 * 30
+    });
+    // Normalize case and any trailing dot; DNS treats them as equivalent but
+    // the value becomes a permanent tag, a URL, and a cloud-init file.
+    const endpoint = res.data?.find(r => r.region_name === region)
+        ?.tunnel_endpoint?.trim().toLowerCase().replace(/\.$/, '');
+    if (!endpoint || !TUNNEL_ENDPOINT_PATTERN.test(endpoint)) {
+        throw new Error(`Region ${region} has no valid tunnel_endpoint (got ${JSON.stringify(endpoint)})`);
     }
-};
-
-// Parse a codespaces release tag into its numeric core and optional
-// prerelease suffix. Accepts the repo's real tag shapes: vX.Y.Z and
-// prereleases like vX.Y.Z-RC1 (nonprod's image picker serves those). The
-// strict shape check matters: Number('') is 0, not NaN, so a typo like "v"
-// would otherwise parse as [0] and open the gate for every old image.
-const parseImageTag = (tag) => {
-    const m = /^v?(\d+(?:\.\d+)*)(?:-([0-9a-z.-]+))?$/i.exec(String(tag).trim());
-    if (!m) return null;
-    return { core: m[1].split('.').map(Number), pre: m[2]?.toLowerCase() ?? null };
-};
-
-const compareImageTags = (a, b) => {
-    for (let i = 0; i < Math.max(a.core.length, b.core.length); i++) {
-        const d = (a.core[i] || 0) - (b.core[i] || 0);
-        if (d) return d;
-    }
-    // Equal numeric cores: a stable release outranks its own prereleases (an
-    // RC may predate fixes in the stable cut); prereleases compare naturally
-    // so RC2 < RC10.
-    if (!a.pre && !b.pre) return 0;
-    if (!a.pre) return 1;
-    if (!b.pre) return -1;
-    return a.pre.localeCompare(b.pre, undefined, { numeric: true });
-};
-
-// Images older than REGIONAL_TUNNEL_MIN_IMAGE_TAG bake a dev() that ignores
-// /etc/glueops/tunnel_endpoint and always tunnels to the legacy central
-// endpoint, so giving such a VM a regional endpoint would advertise dead
-// access URLs. Unset means regional tunnels stay off entirely; unparseable
-// tags fail safe to legacy but are logged loudly, because a set-but-broken
-// gate must not be indistinguishable from the feature being off.
-const imageSupportsRegionalTunnel = (imageName) => {
-    const min = process.env.REGIONAL_TUNNEL_MIN_IMAGE_TAG;
-    if (!min) return false;
-    const floor = parseImageTag(min);
-    if (!floor) {
-        log.error(`REGIONAL_TUNNEL_MIN_IMAGE_TAG "${min}" is not a parseable release tag; regional tunnels stay OFF`);
-        return false;
-    }
-    const image = parseImageTag(imageName);
-    if (!image) {
-        log.error(`Image tag "${imageName}" is not a parseable release tag; VM falls back to the legacy tunnel endpoint`);
-        return false;
-    }
-    return compareImageTags(image, floor) >= 0;
+    return endpoint;
 };
 
 export default {
@@ -125,16 +58,26 @@ export default {
         // Generate CDE token if Single-Click Experience is enabled
         const cdeToken = singleClickExperience ? generateCdeToken() : null;
 
-        // The sish tunnel only runs on CDE-enabled VMs, so only resolve the
-        // endpoint for those, and only when the chosen image can actually read
-        // it — otherwise the VM gets the legacy endpoint so its tag and URLs
-        // match where the tunnel really connects. Recorded in tags below as
-        // the permanent truth (the region config may change later).
+        // The sish tunnel only runs on CDE-enabled VMs, so only resolve for
+        // those. Recorded in tags below as the permanent truth of where this
+        // VM's tunnel connects (the region config may change later). A region
+        // with no usable endpoint fails the creation here rather than handing
+        // the user a VM whose access URL points nowhere.
         let tunnelEndpoint = null;
         if (cdeToken) {
-            tunnelEndpoint = imageSupportsRegionalTunnel(imageName)
-                ? await getTunnelEndpoint(region)
-                : DEFAULT_TUNNEL_ENDPOINT;
+            try {
+                tunnelEndpoint = await getTunnelEndpoint(region);
+            } catch (error) {
+                log.error('Failed to resolve tunnel endpoint', axiosError(error));
+                if (!batch) {
+                    await client.chat.postEphemeral({
+                        channel: channel_id,
+                        user: body.user.id,
+                        text: `Failed to create server: no tunnel endpoint configured for region ${region}. Please report this to the platform team.`
+                    });
+                }
+                return { success: false, serverName, description: description || 'No description' };
+            }
         }
 
         // Call the users.info method using the WebClient
