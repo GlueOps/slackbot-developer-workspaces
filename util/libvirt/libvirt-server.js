@@ -45,9 +45,15 @@ const getTunnelEndpoint = async (region) => {
             timeout: 1000 * 30
         });
     } catch (error) {
-        // Transport/timeout/5xx — transient and self-healing, so the caller
-        // must tell the user to retry rather than blame the region config.
-        throw Object.assign(new Error(`Could not read the region list: ${error.message}`), { transient: true });
+        // Only genuinely self-healing failures earn the retry message: no
+        // response at all (transport/timeout), a 5xx, or a 429. A 4xx is a
+        // real misconfiguration — a rotated PROVISIONER_API_TOKEN answers 401
+        // — and must route to the escalate path instead of telling users to
+        // keep retrying something that will never succeed. The original error
+        // rides along so the logger can still record status and body.
+        const status = error.response?.status;
+        const transient = !error.response || status >= 500 || status === 429;
+        throw Object.assign(new Error(`Could not read the region list: ${error.message}`), { transient, cause: error });
     }
     const entry = res.data?.find(r => r.region_name === region);
     if (!entry) {
@@ -85,7 +91,7 @@ export default {
             try {
                 tunnelEndpoint = await getTunnelEndpoint(region);
             } catch (error) {
-                log.error('Failed to resolve tunnel endpoint', axiosError(error));
+                log.error('Failed to resolve tunnel endpoint', axiosError(error.cause ?? error));
                 const reason = error.transient
                     ? `couldn't read the region list just now — please try again.`
                     : `no tunnel endpoint configured for region ${region}. Please report this to the platform team.`;
