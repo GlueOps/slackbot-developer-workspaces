@@ -21,6 +21,11 @@ const provisionerDetail = (error) => {
         : '';
 };
 
+// The retired central tunnel. VMs there bind under a "cde-" prefix, so any
+// region still pointing at it would advertise a URL nothing serves — reject
+// it where the value is minted, not just where it is rendered.
+export const RETIRED_CENTRAL_TUNNEL = 'tunnels.glueopshosted.com';
+
 // Access URL for a CDE VM: the VM binds its bare hostname at its region's
 // sish endpoint, so the URL is <name>.<region>.tunnels.cde... The VM-side
 // bind in the codespaces image's developer-setup.sh matches, so URL and
@@ -33,15 +38,27 @@ export const cdeAccessUrl = (serverName, tunnelEndpoint, cdeToken) =>
 // tunnel left to fall back to, a VM without a real endpoint would advertise
 // a dead URL, so failing the creation loudly is the only honest outcome.
 const getTunnelEndpoint = async (region) => {
-    const res = await axios.get(`${process.env.PROVISIONER_URL}/v1/regions`, {
-        headers: { 'Authorization': `${process.env.PROVISIONER_API_TOKEN}` },
-        timeout: 1000 * 30
-    });
+    let res;
+    try {
+        res = await axios.get(`${process.env.PROVISIONER_URL}/v1/regions`, {
+            headers: { 'Authorization': `${process.env.PROVISIONER_API_TOKEN}` },
+            timeout: 1000 * 30
+        });
+    } catch (error) {
+        // Transport/timeout/5xx — transient and self-healing, so the caller
+        // must tell the user to retry rather than blame the region config.
+        throw Object.assign(new Error(`Could not read the region list: ${error.message}`), { transient: true });
+    }
+    const entry = res.data?.find(r => r.region_name === region);
+    if (!entry) {
+        // /v1/regions omits a region whose backend is briefly unreachable, so
+        // an absent entry is not evidence of a misconfiguration.
+        throw Object.assign(new Error(`Region ${region} is not currently listed`), { transient: true });
+    }
     // Normalize case and any trailing dot; DNS treats them as equivalent but
     // the value becomes a permanent tag, a URL, and a cloud-init file.
-    const endpoint = res.data?.find(r => r.region_name === region)
-        ?.tunnel_endpoint?.trim().toLowerCase().replace(/\.$/, '');
-    if (!endpoint || !TUNNEL_ENDPOINT_PATTERN.test(endpoint)) {
+    const endpoint = entry.tunnel_endpoint?.trim().toLowerCase().replace(/\.$/, '');
+    if (!endpoint || endpoint === RETIRED_CENTRAL_TUNNEL || !TUNNEL_ENDPOINT_PATTERN.test(endpoint)) {
         throw new Error(`Region ${region} has no valid tunnel_endpoint (got ${JSON.stringify(endpoint)})`);
     }
     return endpoint;
@@ -69,11 +86,14 @@ export default {
                 tunnelEndpoint = await getTunnelEndpoint(region);
             } catch (error) {
                 log.error('Failed to resolve tunnel endpoint', axiosError(error));
+                const reason = error.transient
+                    ? `couldn't read the region list just now — please try again.`
+                    : `no tunnel endpoint configured for region ${region}. Please report this to the platform team.`;
                 if (!batch) {
                     await client.chat.postEphemeral({
                         channel: channel_id,
                         user: body.user.id,
-                        text: `Failed to create server: no tunnel endpoint configured for region ${region}. Please report this to the platform team.`
+                        text: `Failed to create server: ${reason}`
                     });
                 }
                 return { success: false, serverName, description: description || 'No description' };

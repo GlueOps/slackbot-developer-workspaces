@@ -1,4 +1,4 @@
-import libvirt, { cdeAccessUrl } from '../../util/libvirt/libvirt-server.js';
+import libvirt, { cdeAccessUrl, RETIRED_CENTRAL_TUNNEL } from '../../util/libvirt/libvirt-server.js';
 import vmCreateModal from '../../user-interface/modals/vm-create.js';
 import vmProfileModal from '../../user-interface/modals/vm-profile.js';
 import buttonBuilder from '../../util/button-builder.js';
@@ -11,10 +11,6 @@ import axiosError from '../../util/axios-error-handler.js';
 import vmEditModal from '../../user-interface/modals/vm-edit.js';
 
 const log = logger();
-
-// VMs created before regional tunnels tunnel here; the host is retired and
-// its URLs used a cde- prefix, so they can no longer be linked.
-const RETIRED_CENTRAL_TUNNEL = 'tunnels.glueopshosted.com';
 
 const MAX_VM_COUNT = 10;
 const MAX_VM_RAM_MB = 9216;
