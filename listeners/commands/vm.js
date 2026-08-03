@@ -12,6 +12,10 @@ import vmEditModal from '../../user-interface/modals/vm-edit.js';
 
 const log = logger();
 
+// VMs created before regional tunnels tunnel here; the host is retired and
+// its URLs used a cde- prefix, so they can no longer be linked.
+const RETIRED_CENTRAL_TUNNEL = 'tunnels.glueopshosted.com';
+
 const MAX_VM_COUNT = 10;
 const MAX_VM_RAM_MB = 9216;
 
@@ -259,10 +263,12 @@ export default {
 
           // Build header text with optional CDE URL
           let headerText = `Server: ${server.serverName}\nRegion: ${server.region}\nDescription: ${description}\nStatus: ${server.status}\nCreated: ${createdDate}\nRepo: ${cloneRepo || 'None'}`;
-          // Every CDE VM records where its tunnel connects; one without the
-          // tag predates regional tunnels and has no reachable URL to show.
+          // Every CDE VM records where its tunnel connects. A VM with no tag
+          // predates regional tunnels, and one still tagged with the retired
+          // central host binds under a cde- prefix there — neither has a URL
+          // this bot can build, so show the VM without an access link.
           const tunnelHost = server.tags.tunnel_endpoint;
-          if (cdeToken && tunnelHost) {
+          if (cdeToken && tunnelHost && tunnelHost !== RETIRED_CENTRAL_TUNNEL) {
               const cdeUrl = cdeAccessUrl(server.serverName, tunnelHost, cdeToken);
               headerText += `\nAccess: <${cdeUrl}|Cloud Development Environment>`;
           }
