@@ -9,7 +9,7 @@ On create, developers can auto-clone a GitHub repo and apply reusable **profiles
 # Installation
 ### Dependencies
 - Docker installed
-- Slack App setup
+- Slack App setupasdasd
 - Tailscale Account and configured with auth token to add machines
 - [Provisioner](https://github.com/GlueOps/provisioner) API deployed (libvirt and/or Proxmox backends)
 - An S3-compatible bucket + credentials for the VM profiles store (see [VM Profiles & Environment](#vm-profiles--environment)). **Required** — the bot will not start without the `PROFILES_*` variables.
