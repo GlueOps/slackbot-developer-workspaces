@@ -1,5 +1,18 @@
 # Changelog
 
+## [4.4.0](https://github.com/GlueOps/slackbot-developer-workspaces/compare/v4.3.0...v4.4.0) (2026-09-17)
+
+
+### Features
+
+* update docker/login-action to v4.6.0 #minor ([#511](https://github.com/GlueOps/slackbot-developer-workspaces/issues/511)) ([89b689a](https://github.com/GlueOps/slackbot-developer-workspaces/commit/89b689aed398dad76ec2f643631ecb9176be3528))
+
+
+### Miscellaneous Chores
+
+* **lockfile:** update @aws-sdk/client-s3-lockfile #patch ([#528](https://github.com/GlueOps/slackbot-developer-workspaces/issues/528)) ([5d5b34f](https://github.com/GlueOps/slackbot-developer-workspaces/commit/5d5b34f359aefae5fdb7c2bc59bd523a6dc8e368))
+* **lockfile:** update axios-lockfile #patch ([#512](https://github.com/GlueOps/slackbot-developer-workspaces/issues/512)) ([a0fcad4](https://github.com/GlueOps/slackbot-developer-workspaces/commit/a0fcad4970b48d1cc7110affcf5a9b915e816cc6))
+
 ## [4.3.0](https://github.com/GlueOps/slackbot-developer-workspaces/compare/v4.2.0...v4.3.0) (2026-08-02)
 
 
