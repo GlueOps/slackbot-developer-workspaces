@@ -29,11 +29,14 @@ export default function configUserData(serverName, cdeToken = null, cdeEnv = {},
 
         // Regional sish endpoint, world-readable like cde_token because the
         // host-side dev() (developer-setup.sh) reads it as the vscode user —
-        // codespace.env is root-only so it can't serve this. Absent file ->
-        // dev() falls back to the legacy central tunnel, which is also why the
-        // hostname is re-validated here (defence-in-depth; the resolver
-        // already enforced it): a value that can't round-trip safely through
-        // this runcmd is dropped rather than escaped.
+        // codespace.env is root-only so it can't serve this. There is no
+        // fallback any more: without this file dev() refuses to start the
+        // tunnel, so the resolver in libvirt-server.js must have accepted the
+        // value before it gets here. The pattern is re-checked (it must stay
+        // byte-identical to the resolver's) purely so a value that could not
+        // round-trip safely through this runcmd is dropped rather than
+        // escaped — reaching that branch means the resolver let something
+        // through it should not have.
         const tunnelEndpoint = cdeEnv?.TUNNEL_ENDPOINT;
         if (tunnelEndpoint && TUNNEL_ENDPOINT_PATTERN.test(tunnelEndpoint)) {
             userData += `
