@@ -97,6 +97,10 @@ openssl rand -hex 32
 
 > ⚠️ The key is not recoverable. If it is lost or rotated, every stored profile becomes unreadable (the object names are derived from it too) and profiles must be recreated. Store it with your other secrets.
 
+# VM metrics
+
+Set `OTEL_EXPORTER_OTLP_ENDPOINT` (see `example.env`) and every new VM gets `/etc/glueops/otel.env` through cloud-init: the OTLP/HTTP base URL plus `OTEL_RESOURCE_ATTRIBUTES` built from the metadata the bot already has (region, instance type, image, owner, and `APP_ENVIRONMENT` as `deployment.environment.name`). That file is what switches on the node exporter + OpenTelemetry Collector baked into the [codespaces](https://github.com/GlueOps/codespaces) image (see its README, "VM metrics", for the contract); images that predate it ignore the file. Leave the variable unset and no file is written — VMs ship no metrics. The endpoint is write-only with no auth, so it is not a secret.
+
 # Adding Bot commands
 To register a new command, create a file `myCommand.js` in listeners/commands
 with `myCommand.js` being the command you want to register. You then need to

@@ -33,7 +33,7 @@ There are no automated tests or linting tools configured.
 
 **Utility modules** (`util/`):
 - `libvirt/libvirt-server.js` — all Provisioner REST API calls: create, delete, list, start, stop, edit-tags.
-- `get-user-data.js` — builds cloud-init `user_data` for new VMs. Writes `/etc/glueops/codespace.env`: platform metadata as `GLUEOPS_CDE_*`, user-supplied env vars **verbatim**.
+- `get-user-data.js` — builds cloud-init `user_data` for new VMs. Writes `/etc/glueops/codespace.env`: platform metadata as `GLUEOPS_CDE_*`, user-supplied env vars **verbatim**. Also writes `/etc/glueops/otel.env` (collector endpoint + `OTEL_RESOURCE_ATTRIBUTES` identity) when `OTEL_EXPORTER_OTLP_ENDPOINT` is set — that file is what turns on the metrics collector baked into the codespaces image.
 - `profile-store.js` — S3-backed store for per-user VM profiles (env-var bundles). Whole document encrypted at rest; the S3 object key is a keyed HMAC of the email. Every S3 call is bounded by `PROFILES_S3_TIMEOUT_MS`.
 - `profile-crypto.js` — AES-256-GCM `encrypt`/`decrypt` of the profile document + keyed `hashEmail()` for the object key. Guards against a missing email.
 - `parse-env-vars.js` — parses the `KEY=VALUE` env textarea (now in the **profile** create/edit modal); reports malformed lines for inline modal errors.
@@ -84,6 +84,7 @@ See `example.env` for the full list.
 | `PROVISIONER_URL` | Base URL of the Provisioner API |
 | `PROVISIONER_API_TOKEN` | Bearer token for Provisioner API |
 | `TAILSCALE_AUTH_KEY` | Injected into VM cloud-init user data |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | Optional. OTLP/HTTP base URL for CDE VM metrics; written to `/etc/glueops/otel.env` on new VMs. Unset = VMs ship no metrics |
 | `GUACAMOLE_CONNECTION_URL` | VNC access URL shown to users after VM creation |
 | `APP_ENVIRONMENT` | `prod` or `nonprod` (controls command prefix) |
 | `SERVER_PORT` | HTTP port (default: `5000`) |
