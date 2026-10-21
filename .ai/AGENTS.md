@@ -210,7 +210,7 @@ Store: profile-store.js → one JSON doc per user at profiles/<hmac(email)>.json
      EQUALS <domain> (never substring; a domain must contain a dot)
   → per route: GET + toUpdatePayload() for every route first (a route that can't be
      rewritten aborts with nothing changed); routes already in the wanted state skipped
-  → per route: PUT (409 → re-read; already in the wanted state = done)
+  → per route: PUT (409, timeout or 5xx → re-read; already in the wanted state = done)
   → if anything changed and ALERTS_AUDIT_CHANNEL_ID is set: audit postMessage FIRST
   → respond() with what changed, what failed (API's message) and, on resume, a
      reminder that alerts that fired while paused won't page now

@@ -25,7 +25,7 @@ const SENSITIVE_SUBSTRINGS = [
 const BASE64_BLOB = /[A-Za-z0-9+/]{120,}={0,2}/g;
 // ...and any bearer credential written into a string (e.g. an API echoing the request's
 // Authorization header back in an error body), whatever the key around it is called.
-const BEARER_TOKEN = /\bBearer\s+[^\s"',;]+/gi;
+const BEARER_TOKEN = /\bBearer\s+["']?[^\s"',;]+/gi;
 const REDACTED = '[REDACTED]';
 const MAX_DEPTH = 8;
 

@@ -34,7 +34,7 @@ const client = () => axios.create({
 
 // The API's own explanation (e.g. why a PUT was rejected) when there is one.
 export const apiErrorMessage = (error) =>
-    error.response?.data?.errors?.[0]?.message ?? error.message;
+    String(error.response?.data?.errors?.[0]?.message ?? error.message ?? error);
 
 // Every route, walking the cursor until the API stops returning one. The list is
 // slim: { id, name, enabled } per route.
@@ -93,18 +93,16 @@ export const toUpdatePayload = (route, enabled) => {
     const { id, created_at, updated_at, ...rest } = flattenConditions(route);
     const payload = { ...rest, enabled, version: route.version + 1 };
 
+    // when_alert_joins_group is echoed as returned, grouping on or off: a team preference
+    // can group the route's alerts, and the provider re-sends it the same way.
     if (payload.escalation_config) {
-        const { when_alert_joins_group, ...escalation } = payload.escalation_config;
         // A target is an escalation-path binding or a user binding, never both, but the
         // API echoes an escalation-path binding into `users` too. Send it back once.
-        escalation.escalation_targets = (escalation.escalation_targets ?? []).map(t =>
-            t.escalation_paths ? { escalation_paths: t.escalation_paths } : t);
-        // With grouping off the provider sends no when_alert_joins_group for routes
-        // that don't configure one, so match it.
-        if (payload.grouping_config?.default?.enabled !== false) {
-            escalation.when_alert_joins_group = when_alert_joins_group;
-        }
-        payload.escalation_config = escalation;
+        payload.escalation_config = {
+            ...payload.escalation_config,
+            escalation_targets: (payload.escalation_config.escalation_targets ?? []).map(t =>
+                t.escalation_paths ? { escalation_paths: t.escalation_paths } : t),
+        };
     }
 
     // With incident creation off the API rejects the template and auto-decline fields
@@ -119,7 +117,12 @@ export const getRoute = async (routeId) =>
     (await client().get(`/v3/alert_routes/${routeId}`)).data.alert_route;
 
 // PUT a payload from toUpdatePayload(). Returns true if this call changed the route,
-// false if a concurrent edit (409 on the version) already left it in the wanted state.
+// false if a concurrent edit already left it in the wanted state.
+//
+// When the outcome is unclear the route is re-read: after a 409 (the version moved — a
+// concurrent edit) a route already in the wanted state was changed by someone else; after
+// a timeout or 5xx the PUT may have been applied anyway, so a route in the wanted state
+// counts as changed here and gets announced.
 export const putRoute = async (routeId, payload) => {
     try {
         const res = await client().put(`/v3/alert_routes/${routeId}`, payload);
@@ -128,8 +131,16 @@ export const putRoute = async (routeId, payload) => {
         }
         return true;
     } catch (error) {
-        if (error.response?.status === 409 && (await getRoute(routeId)).enabled === payload.enabled) {
-            return false;
+        const status = error.response?.status;
+        const mayHaveApplied = !status || status >= 500;
+        if (status === 409 || mayHaveApplied) {
+            let current;
+            try {
+                current = await getRoute(routeId);
+            } catch {
+                throw error; // report the PUT's failure, not the re-read's
+            }
+            if (current.enabled === payload.enabled) return mayHaveApplied;
         }
         throw error;
     }

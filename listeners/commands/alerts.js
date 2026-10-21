@@ -52,6 +52,8 @@ export default {
         const [rawSubcommand, rawDomain, ...extra] = event.text.trim().split(/\s+/);
         const subcommand = rawSubcommand.toLowerCase();
         const domain = rawDomain && unwrapLink(rawDomain).toLowerCase();
+        // Once the first PUT is sent, a failure can no longer mean "nothing changed".
+        let putsStarted = false;
 
         try {
             if (subcommand === 'paused' && !rawDomain) {
@@ -91,6 +93,7 @@ export default {
 
             const changed = [];
             const failed = [];
+            putsStarted = true;
             for (const { id, name, payload } of pending) {
                 try {
                     if (await putRoute(id, payload)) changed.push(name);
@@ -127,7 +130,10 @@ export default {
         } catch (error) {
             // axiosError() drops config.headers, which carries the incident.io API key.
             log.error(`alerts: ${subcommand} failed`, { user: event.user_id, domain, ...axiosError(error) });
-            await reply(`/${commandPrefix}alerts ${subcommand} failed: ${escapeMrkdwn(apiErrorMessage(error))}. Nothing was changed.`);
+            const outcome = putsStarted
+                ? ` Some routes may have changed — run /${commandPrefix}alerts status ${domain}.`
+                : ' Nothing was changed.';
+            await reply(`/${commandPrefix}alerts ${subcommand} failed: ${escapeMrkdwn(apiErrorMessage(error))}.${outcome}`);
         }
     }
 }

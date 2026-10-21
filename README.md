@@ -97,6 +97,29 @@ openssl rand -hex 32
 
 > ⚠️ The key is not recoverable. If it is lost or rotated, every stored profile becomes unreadable (the object names are derived from it too) and profiles must be recreated. Store it with your other secrets.
 
+# Pausing cluster alerts (`/alerts`)
+
+`/alerts` pauses and resumes incident.io paging for one cluster, by turning off every incident.io alert route named `<Source> · <captain_domain>`. While paused, alerts still reach incident.io and show in its UI, but nothing pages or posts to Slack. Anyone in the workspace can run it.
+
+```
+/alerts status <captain_domain>   # the cluster's routes and whether each is on
+/alerts pause  <captain_domain>   # turn its routes off
+/alerts resume <captain_domain>   # turn them back on
+/alerts paused                    # every paused cluster route
+```
+
+It is optional: without `INCIDENT_IO_API_KEY` the command replies "not configured".
+
+- `INCIDENT_IO_API_KEY` — an incident.io API key that can view and edit alert routes.
+- `ALERTS_AUDIT_CHANNEL_ID` — optional channel ID where every pause and resume is announced and still-paused routes are re-posted every 2 hours. Invite the bot to the channel first.
+
+Set these on **one** deployment. nonprod's `/test-alerts` talks to the same incident.io account, so a nonprod key can pause production paging, and every deployment with the channel set posts its own reminders.
+
+Things to know:
+- If the alert routes are managed as code (Terraform/OpenTofu) with `enabled = true`, the next apply turns a paused route back on. Ignore changes to `enabled` there, or don't apply while a cluster is paused.
+- Resuming probably doesn't re-page alerts that started while paused. Check the cluster's open alerts in incident.io after a resume; resolving a stale one lets the next resend create a fresh alert that pages.
+- There is no auto-resume. The 2-hourly reminder is there to catch forgotten pauses.
+
 # Adding Bot commands
 To register a new command, create a file `myCommand.js` in listeners/commands
 with `myCommand.js` being the command you want to register. You then need to
