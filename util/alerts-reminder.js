@@ -4,9 +4,11 @@
 
     Stateless: each run asks incident.io what is paused right now, so a bot restart
     can't lose track of a pause. The first run is a minute after startup, so a bot that
-    restarts more often than every 2 hours still reminds. Posts nothing when no routes
-    are paused. Every running instance with the key and channel set will remind, so
-    enable it on one deployment.
+    restarts more often than every 2 hours still reminds — and a bot that restarts
+    often posts one reminder per restart. Posts nothing when no routes are paused. It
+    lists every disabled cluster route, however it was disabled (by /alerts, by hand, or
+    by infrastructure-as-code). Every running instance with the key and channel set
+    will remind, so enable it on one deployment.
 */
 import logger from './logger.js';
 import axiosError from './axios-error-handler.js';
@@ -22,7 +24,7 @@ const commandPrefix = process.env.APP_ENVIRONMENT === 'prod' ? '' : 'test-';
 // Slack renders this in each reader's timezone; the fallback is for clients that can't.
 const slackDate = (iso) => {
     const ts = Math.floor(Date.parse(iso) / 1000);
-    return Number.isFinite(ts) ? `<!date^${ts}^{date_short_pretty} {time}|${iso}>` : 'unknown';
+    return Number.isFinite(ts) ? `<!date^${ts}^{date_short_pretty} {time}|${escapeMrkdwn(iso)}>` : 'unknown';
 };
 
 export const remindPausedAlerts = async (app) => {
@@ -39,7 +41,7 @@ export const remindPausedAlerts = async (app) => {
 
     await app.client.chat.postMessage({
         channel: process.env.ALERTS_AUDIT_CHANNEL_ID,
-        text: `:double_vertical_bar: Reminder: incident.io alerts are still paused for:\n${lines.join('\n')}\nResume with /${commandPrefix}alerts resume <captain_domain>.`
+        text: `:double_vertical_bar: Reminder: incident.io alerts are still paused for:\n${lines.join('\n')}\nResume with /${commandPrefix}alerts resume &lt;captain_domain&gt;.`
     });
 };
 

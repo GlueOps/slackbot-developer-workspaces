@@ -118,7 +118,7 @@ Set these on **one** deployment. nonprod's `/test-alerts` talks to the same inci
 Things to know:
 - If the alert routes are managed as code (Terraform/OpenTofu) with `enabled = true`, the next apply turns a paused route back on. Ignore changes to `enabled` there, or don't apply while a cluster is paused.
 - Resuming probably doesn't re-page alerts that started while paused. Check the cluster's open alerts in incident.io after a resume; resolving a stale one lets the next resend create a fresh alert that pages.
-- There is no auto-resume. The 2-hourly reminder is there to catch forgotten pauses.
+- There is no auto-resume. The 2-hourly reminder is there to catch forgotten pauses. It lists every disabled cluster route, however it was disabled (by `/alerts`, by hand, or by infrastructure-as-code), and a bot that restarts often posts one reminder per restart.
 
 # Adding Bot commands
 To register a new command, create a file `myCommand.js` in listeners/commands

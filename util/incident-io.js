@@ -5,9 +5,8 @@
     Routes are found by NAME: every per-cluster route is named
     "<Source> · <captain_domain>". A route belongs to a cluster when its LAST " · "
     segment EQUALS the domain — never a substring match, since one domain can contain
-    another (prod.example.com is inside nonprod.example.com). A domain must contain a
-    dot, so routes whose last segment is some other label are never treated as cluster
-    routes.
+    another (prod.example.com is inside nonprod.example.com). A last segment that isn't
+    hostname-shaped (spaces, punctuation) is never treated as a cluster.
 
     Uses the v3 alert routes API (the one the OpenTofu provider uses). There is no
     PATCH, so a toggle is GET -> reshape into the update payload -> PUT.
@@ -19,10 +18,15 @@ const API_URL = 'https://api.incident.io';
 const NAME_SEPARATOR = ' · ';
 // The largest page the list endpoint accepts.
 const PAGE_SIZE = 50;
+// 10,000 routes; a cursor that keeps going past this is a bug, not a real org.
+const MAX_PAGES = 200;
+// How long to wait before a second look at a route whose PUT timed out or hit a 5xx:
+// the change can land after the request gave up.
+const SETTLE_MS = 3000;
 
-// A bare hostname with at least one dot; rejects anything else before it is matched
-// against route names or echoed back into Slack.
-export const DOMAIN_PATTERN = /^[a-z0-9-]+(\.[a-z0-9-]+)+$/;
+// A bare hostname (dots optional — some captain_domains are single labels); rejects
+// anything else before it is matched against route names or echoed back into Slack.
+export const DOMAIN_PATTERN = /^[a-z0-9-]+(\.[a-z0-9-]+)*$/;
 
 export const incidentIoConfigured = () => Boolean(process.env.INCIDENT_IO_API_KEY);
 
@@ -32,31 +36,38 @@ const client = () => axios.create({
     timeout: 1000 * 15
 });
 
-// The API's own explanation (e.g. why a PUT was rejected) when there is one.
+// The API's own explanation (e.g. why a PUT was rejected) when there is one, without a
+// trailing period so it can be embedded in a sentence.
 export const apiErrorMessage = (error) =>
-    String(error.response?.data?.errors?.[0]?.message ?? error.message ?? error);
+    String(error.response?.data?.errors?.[0]?.message ?? error.message ?? error).replace(/\.+$/, '');
+
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 // Every route, walking the cursor until the API stops returning one. The list is
-// slim: { id, name, enabled } per route.
+// slim: { id, name, enabled } per route. Deduplicated by id, in case a route shifts
+// between pages while the list is walked.
 export const listRoutes = async () => {
     const api = client();
-    const routes = [];
+    const routes = new Map();
     const seen = new Set();
     let after;
-    for (;;) {
+    for (let page = 0; page < MAX_PAGES; page++) {
         const res = await api.get('/v3/alert_routes', { params: { page_size: PAGE_SIZE, after } });
-        routes.push(...(res.data?.alert_routes ?? []));
+        for (const route of res.data?.alert_routes ?? []) routes.set(route.id, route);
         after = res.data?.pagination_meta?.after;
-        if (!after) return routes;
+        if (!after) return [...routes.values()];
         // A cursor seen before would loop forever.
         if (seen.has(after)) throw new Error('incident.io returned a repeated page cursor');
         seen.add(after);
     }
+    throw new Error(`incident.io returned more than ${MAX_PAGES} pages of alert routes`);
 };
 
+// The cluster a route belongs to, or null. Case and stray whitespace in a hand-made
+// route name don't stop it matching.
 const clusterDomain = (name) => {
-    const segments = name.split(NAME_SEPARATOR);
-    const last = segments[segments.length - 1];
+    const segments = String(name ?? '').split(NAME_SEPARATOR);
+    const last = segments[segments.length - 1].trim().toLowerCase();
     return segments.length > 1 && DOMAIN_PATTERN.test(last) ? last : null;
 };
 
@@ -83,7 +94,7 @@ const flattenConditions = (node) => {
 };
 
 // Response -> update payload, mirroring what the OpenTofu provider sends. Throws for
-// a route it can't safely rewrite. Exported for testing.
+// a route it can't safely rewrite.
 export const toUpdatePayload = (route, enabled) => {
     // Expressions carry read-only metadata (`returns`) that isn't reshaped here. The
     // cluster routes have none, so refuse rather than send an untested payload.
@@ -93,16 +104,24 @@ export const toUpdatePayload = (route, enabled) => {
     const { id, created_at, updated_at, ...rest } = flattenConditions(route);
     const payload = { ...rest, enabled, version: route.version + 1 };
 
-    // when_alert_joins_group is echoed as returned, grouping on or off: a team preference
-    // can group the route's alerts, and the provider re-sends it the same way.
     if (payload.escalation_config) {
         // A target is an escalation-path binding or a user binding, never both, but the
         // API echoes an escalation-path binding into `users` too. Send it back once.
-        payload.escalation_config = {
+        const escalation = {
             ...payload.escalation_config,
             escalation_targets: (payload.escalation_config.escalation_targets ?? []).map(t =>
                 t.escalation_paths ? { escalation_paths: t.escalation_paths } : t),
         };
+        // when_alert_joins_group is echoed as returned, grouping on or off: a team
+        // preference can group the route's alerts, and the provider re-sends it the same
+        // way. Its grace period only applies to on_each_new_alert — the API returns a 0
+        // for other modes but rejects it when sent, so drop it there like the provider.
+        const joins = escalation.when_alert_joins_group;
+        if (joins && joins.mode !== 'on_each_new_alert' && 'grace_period_seconds' in joins) {
+            const { grace_period_seconds, ...mode } = joins;
+            escalation.when_alert_joins_group = mode;
+        }
+        payload.escalation_config = escalation;
     }
 
     // With incident creation off the API rejects the template and auto-decline fields
@@ -119,10 +138,11 @@ export const getRoute = async (routeId) =>
 // PUT a payload from toUpdatePayload(). Returns true if this call changed the route,
 // false if a concurrent edit already left it in the wanted state.
 //
-// When the outcome is unclear the route is re-read: after a 409 (the version moved — a
-// concurrent edit) a route already in the wanted state was changed by someone else; after
-// a timeout or 5xx the PUT may have been applied anyway, so a route in the wanted state
-// counts as changed here and gets announced.
+// On any failure the route is re-read. After a 4xx (e.g. 409, the version moved — a
+// concurrent edit), a route already in the wanted state was changed by someone else.
+// After a timeout or 5xx the PUT may have applied anyway — possibly a moment later, so
+// it is re-read once more after SETTLE_MS — and a route in the wanted state counts as
+// changed here and gets announced.
 export const putRoute = async (routeId, payload) => {
     try {
         const res = await client().put(`/v3/alert_routes/${routeId}`, payload);
@@ -133,14 +153,15 @@ export const putRoute = async (routeId, payload) => {
     } catch (error) {
         const status = error.response?.status;
         const mayHaveApplied = !status || status >= 500;
-        if (status === 409 || mayHaveApplied) {
-            let current;
-            try {
-                current = await getRoute(routeId);
-            } catch {
-                throw error; // report the PUT's failure, not the re-read's
+        const inWantedState = async () => (await getRoute(routeId))?.enabled === payload.enabled;
+        try {
+            if (await inWantedState()) return mayHaveApplied;
+            if (mayHaveApplied) {
+                await sleep(SETTLE_MS);
+                if (await inWantedState()) return true;
             }
-            if (current.enabled === payload.enabled) return mayHaveApplied;
+        } catch {
+            // fall through: report the PUT's failure, not the re-read's
         }
         throw error;
     }

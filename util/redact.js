@@ -24,8 +24,11 @@ const SENSITIVE_SUBSTRINGS = [
 // wherever it appears in a string — not just when the whole string is base64.
 const BASE64_BLOB = /[A-Za-z0-9+/]{120,}={0,2}/g;
 // ...and any bearer credential written into a string (e.g. an API echoing the request's
-// Authorization header back in an error body), whatever the key around it is called.
-const BEARER_TOKEN = /\bBearer\s+["']?[^\s"',;]+/gi;
+// Authorization header back in an error body), whatever the key around it is called —
+// quoted, JSON-escaped or URL-encoded.
+const BEARER_TOKEN = /\bBearer(?:\s|%20)+(?:\\?["'])?[^\s"'\\]+/gi;
+// ...and the literal value of any API key this bot holds, however it ended up in a string.
+const LITERAL_SECRETS = ['INCIDENT_IO_API_KEY'];
 const REDACTED = '[REDACTED]';
 const MAX_DEPTH = 8;
 
@@ -35,7 +38,12 @@ function isSensitiveKey(key) {
 }
 
 function scrubString(str) {
-    return str.replace(BASE64_BLOB, REDACTED).replace(BEARER_TOKEN, `Bearer ${REDACTED}`);
+    let out = str.replace(BASE64_BLOB, REDACTED).replace(BEARER_TOKEN, `Bearer ${REDACTED}`);
+    for (const name of LITERAL_SECRETS) {
+        const secret = process.env[name];
+        if (secret && secret.length >= 8) out = out.split(secret).join(REDACTED);
+    }
+    return out;
 }
 
 // Returns a redacted copy of `obj`. Circular-safe (via a WeakMap of original→copy) and

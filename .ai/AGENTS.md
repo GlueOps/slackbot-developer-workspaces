@@ -206,14 +206,17 @@ Store: profile-store.js → one JSON doc per user at profiles/<hmac(email)>.json
 /alerts status <domain>   → list the cluster's routes and whether each is on
 /alerts paused            → list every disabled cluster route
 /alerts pause|resume <domain>   (anyone in the workspace)
-  → GET /v3/alert_routes (page_size 50, cursor) → routes whose LAST " · " segment
-     EQUALS <domain> (never substring; a domain must contain a dot)
+  → GET /v3/alert_routes (page_size 50, cursor, ≤200 pages, dedup by id) → routes whose
+     LAST " · " segment (lowercased, trimmed) EQUALS <domain> (never substring)
+  → respond() "Pausing…/Resuming…" right away
   → per route: GET + toUpdatePayload() for every route first (a route that can't be
      rewritten aborts with nothing changed); routes already in the wanted state skipped
-  → per route: PUT (409, timeout or 5xx → re-read; already in the wanted state = done)
-  → if anything changed and ALERTS_AUDIT_CHANNEL_ID is set: audit postMessage FIRST
-  → respond() with what changed, what failed (API's message) and, on resume, a
-     reminder that alerts that fired while paused won't page now
+  → per route: PUT (any failure → re-read; timeout/5xx → re-read again after 3s;
+     already in the wanted state = done)
+  → if anything changed or failed and ALERTS_AUDIT_CHANNEL_ID is set: audit
+     postMessage FIRST (failures flagged as "may still apply")
+  → respond() with what changed, what was already in that state, what failed (API's
+     message) and, on resume, a reminder that alerts that fired while paused won't page
 
 every 2h (util/alerts-reminder.js, started in app.js; first run 1 min after startup)
   → pausedRoutes(listRoutes()); nothing paused → no post
