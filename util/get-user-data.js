@@ -11,6 +11,7 @@
 export const TUNNEL_ENDPOINT_PATTERN = /^[a-z0-9][a-z0-9.-]*$/i;
 
 export default function configUserData(serverName, cdeToken = null, cdeEnv = {}, userEnv = {}) {
+    const otelEnvBody = otelEnvFile(cdeEnv);
     let userData = `
         #cloud-config
         hostname: ${serverName}
@@ -20,6 +21,15 @@ export default function configUserData(serverName, cdeToken = null, cdeEnv = {},
             - ['tailscale', 'up', '--authkey=${process.env.TAILSCALE_AUTH_KEY}', '--hostname=${serverName}']
             - ['tailscale', 'set', '--ssh']
             - ['tailscale', 'set', '--accept-routes']`;
+
+    // Metrics: the codespaces image ships otelcol-contrib gated on /etc/glueops/otel.env
+    // (ConditionPathExists), written below. write_files lands before runcmd and the unit is
+    // ordered after cloud-init's config stage, so this start is belt-and-braces for the
+    // first boot; `|| true` keeps it a no-op on images that predate the unit.
+    if (otelEnvBody) {
+        userData += `
+            - ['bash', '-c', 'systemctl start otelcol-contrib || true']`;
+    }
 
     // If CDE token is provided, write it to disk and run startup commands
     if (cdeToken) {
@@ -69,23 +79,74 @@ export default function configUserData(serverName, cdeToken = null, cdeEnv = {},
     const metadataLines = envLines(cdeEnv, 'GLUEOPS_CDE_');
     const userLines = envLines(userEnv, '', /^GLUEOPS_CDE_/);
     const allLines = [...metadataLines, ...userLines];
+    const writeFiles = [];
     if (allLines.length > 0) {
-        const envFileBody = allLines.join('\n') + '\n';
-        const envFileB64 = Buffer.from(envFileBody).toString('base64');
+        writeFiles.push(['/etc/glueops/codespace.env', allLines.join('\n') + '\n']);
+    }
 
-        // content is single-quoted for defence-in-depth: base64 never contains a
-        // single quote, so this can't need escaping, and it removes any chance of
-        // YAML implicit-tag resolution on the scalar.
+    // /etc/glueops/otel.env — the systemd EnvironmentFile that turns the image's metrics
+    // collector on and tells it which VM it is. Contract documented in GlueOps/codespaces,
+    // README "VM metrics". Root-only like codespace.env: PID 1 reads it, nothing else needs to.
+    if (otelEnvBody) {
+        writeFiles.push(['/etc/glueops/otel.env', otelEnvBody]);
+    }
+
+    if (writeFiles.length > 0) {
         userData += `
-        write_files:
-            - path: /etc/glueops/codespace.env
+        write_files:`;
+        for (const [path, body] of writeFiles) {
+            // content is single-quoted for defence-in-depth: base64 never contains a
+            // single quote, so this can't need escaping, and it removes any chance of
+            // YAML implicit-tag resolution on the scalar.
+            const b64 = Buffer.from(body).toString('base64');
+            userData += `
+            - path: ${path}
               owner: 'root:root'
               permissions: '0600'
               encoding: b64
-              content: '${envFileB64}'`;
+              content: '${b64}'`;
+        }
     }
 
     return userData;
+}
+
+// Base URL of the OTLP/HTTP collector the VM ships metrics to; the exporter appends /v1/metrics.
+// Bare scheme+host[:port][/path], nothing that could break out of a KEY=VALUE env-file line.
+const OTEL_ENDPOINT_PATTERN = /^https?:\/\/[^\s"'\\]+$/;
+// One value inside OTEL_RESOURCE_ATTRIBUTES ("k=v,k=v"). ',' and '=' are the separators and
+// '%' would be read as an escape, so a value carrying any of them — or whitespace, which the
+// env file would need quoting for — is dropped rather than escaped, the same policy as
+// TUNNEL_ENDPOINT above: one bad attribute must not cost the VM its metrics.
+const OTEL_ATTR_VALUE_PATTERN = /^[^\s,=%\x00-\x1f\x7f]+$/;
+
+// Body of /etc/glueops/otel.env, or null when metrics are not configured for this bot
+// (OTEL_EXPORTER_OTLP_ENDPOINT unset) — in which case no file is written and the VM's
+// collector stays inert. The endpoint is not a secret (write-only, no auth), and the
+// attributes are the metadata already written to codespace.env, so nothing here needs
+// redaction.
+export function otelEnvFile(cdeEnv = {}) {
+    const endpoint = process.env.OTEL_EXPORTER_OTLP_ENDPOINT?.trim();
+    if (!endpoint || !OTEL_ENDPOINT_PATTERN.test(endpoint)) {
+        return null;
+    }
+    // host.name is deliberately absent: the collector takes it from the VM hostname, which
+    // cloud-init sets to the server name.
+    const attributes = {
+        'cloud.region': cdeEnv?.REGION,
+        'host.type': cdeEnv?.INSTANCE_TYPE,
+        'host.image.name': cdeEnv?.IMAGE,
+        'deployment.environment.name': process.env.APP_ENVIRONMENT,
+        'glueops.cde.owner': cdeEnv?.OWNER,
+    };
+    const pairs = Object.entries(attributes)
+        .filter(([, value]) => value != null && OTEL_ATTR_VALUE_PATTERN.test(String(value)))
+        .map(([key, value]) => `${key}=${value}`);
+    let body = `OTEL_EXPORTER_OTLP_ENDPOINT=${endpoint}\n`;
+    if (pairs.length > 0) {
+        body += `OTEL_RESOURCE_ATTRIBUTES=${pairs.join(',')}\n`;
+    }
+    return body;
 }
 
 // Turn an object into sanitised `PREFIX+KEY=VALUE` env-file lines. Drops entries whose
