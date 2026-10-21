@@ -31,9 +31,9 @@ export default async function register(app) {
         const fullCommand = `/${commandPrefix}${commandName}`;
         
         //register the command
-        app.command(fullCommand, async ({ command, ack, body }) => {
+        app.command(fullCommand, async ({ command, ack, body, respond }) => {
             await ack();
-            await commandObject.run({ event: command, app, body, commandPrefix });
+            await commandObject.run({ event: command, app, body, respond, commandPrefix });
         });
     }
 }

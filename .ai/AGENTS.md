@@ -30,6 +30,13 @@ import vmProfileModal from './user-interface/modals/vm-profile.js' // Block Kit:
 // Provisioner API client
 import libvirt from './util/libvirt/libvirt-server.js'          // All Provisioner REST API calls
 
+// incident.io alert routes (/alerts)
+import alertsCommand from './listeners/commands/alerts.js'      // /alerts slash command (status/pause/resume/paused)
+import { DOMAIN_PATTERN, incidentIoConfigured, apiErrorMessage, listRoutes, clusterRoutes, pausedRoutes,
+         getRoute, toUpdatePayload, putRoute } from './util/incident-io.js'
+import startAlertsReminder, { remindPausedAlerts } from './util/alerts-reminder.js' // 2-hourly still-paused reminder
+import escapeMrkdwn from './util/escape-mrkdwn.js'             // escape &<> in names from other systems
+
 // Profile store (S3, encrypted)
 import { requireProfilesConfig, listProfiles, getProfile, saveProfile, deleteProfile } from './util/profile-store.js'
 import { encrypt, decrypt, hashEmail, encryptionKeyValid } from './util/profile-crypto.js'
@@ -102,7 +109,7 @@ These are load-bearing. Do not change without understanding the impact.
 
 1. **`await ack()` is always the first line** in action handlers (`vm-region.js`) and view handlers (`vm-create-modal.js`, `vm-edit-modal.js`). Slack requires acknowledgement within 3 seconds or retries the request.
 
-2. **All user-facing responses use `chat.postEphemeral`** — only visible to the triggering user. Never use `chat.postMessage` for VM operation feedback.
+2. **All user-facing responses use `chat.postEphemeral`** — only visible to the triggering user. Never use `chat.postMessage` for VM operation feedback. `/alerts` is the deliberate exception: it replies via `respond` (response_url; ephemeral, works where the bot isn't a member) and posts its audit announcements and reminders to `ALERTS_AUDIT_CHANNEL_ID` with `chat.postMessage`. The command loader passes `respond` to every command's `run`.
 
 3. **User identity is always resolved to email** via `client.users.info({ user: body.user.id })`. The email is stored as `owner` in VM tags. `listServers` filters VMs client-side by matching `server.tags.owner === userEmail`.
 
@@ -190,6 +197,31 @@ Store: profile-store.js → one JSON doc per user at profiles/<hmac(email)>.json
        bounded by PROFILES_S3_TIMEOUT_MS. Profile buttons route via
        actions/buttons.js (^button_profile_) to the vm command's button handler.
 ```
+
+---
+
+## /alerts Flow
+
+```
+/alerts status <domain>   → list the cluster's routes and whether each is on
+/alerts paused            → list every disabled cluster route
+/alerts pause|resume <domain>   (anyone in the workspace)
+  → GET /v3/alert_routes (page_size 50, cursor) → routes whose LAST " · " segment
+     EQUALS <domain> (never substring; a domain must contain a dot)
+  → per route: GET + toUpdatePayload() for every route first (a route that can't be
+     rewritten aborts with nothing changed); routes already in the wanted state skipped
+  → per route: PUT (409 → re-read; already in the wanted state = done)
+  → if anything changed and ALERTS_AUDIT_CHANNEL_ID is set: audit postMessage FIRST
+  → respond() with what changed, what failed (API's message) and, on resume, a
+     reminder that alerts that fired while paused won't page now
+
+every 2h (util/alerts-reminder.js, started in app.js; first run 1 min after startup)
+  → pausedRoutes(listRoutes()); nothing paused → no post
+  → postMessage to ALERTS_AUDIT_CHANNEL_ID, one line per route with "since" = the
+     route's updated_at ("unknown" if that lookup fails)
+```
+
+If the routes are managed as code (e.g. Terraform/OpenTofu), that config may own `enabled` too: an apply there can re-enable a paused route unless it ignores changes to `enabled`.
 
 ---
 

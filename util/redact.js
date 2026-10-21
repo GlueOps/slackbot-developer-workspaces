@@ -23,6 +23,9 @@ const SENSITIVE_SUBSTRINGS = [
 // ...and any run that looks like a long base64 blob (e.g. an echoed user_data payload),
 // wherever it appears in a string — not just when the whole string is base64.
 const BASE64_BLOB = /[A-Za-z0-9+/]{120,}={0,2}/g;
+// ...and any bearer credential written into a string (e.g. an API echoing the request's
+// Authorization header back in an error body), whatever the key around it is called.
+const BEARER_TOKEN = /\bBearer\s+[^\s"',;]+/gi;
 const REDACTED = '[REDACTED]';
 const MAX_DEPTH = 8;
 
@@ -32,7 +35,7 @@ function isSensitiveKey(key) {
 }
 
 function scrubString(str) {
-    return str.replace(BASE64_BLOB, REDACTED);
+    return str.replace(BASE64_BLOB, REDACTED).replace(BEARER_TOKEN, `Bearer ${REDACTED}`);
 }
 
 // Returns a redacted copy of `obj`. Circular-safe (via a WeakMap of original→copy) and

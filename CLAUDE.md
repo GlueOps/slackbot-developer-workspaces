@@ -33,6 +33,9 @@ There are no automated tests or linting tools configured.
 
 **Utility modules** (`util/`):
 - `libvirt/libvirt-server.js` — all Provisioner REST API calls: create, delete, list, start, stop, edit-tags.
+- `alerts-reminder.js` — every 2h (first run a minute after startup), posts the still-paused cluster routes to `ALERTS_AUDIT_CHANNEL_ID` (started from `app.js`; stateless, asks incident.io each run).
+- `incident-io.js` — incident.io v3 alert route calls for `/alerts`: list routes, match a cluster's routes by `captain_domain`, reshape a route into its update payload, PUT it.
+- `escape-mrkdwn.js` — escapes `&<>` so names from other systems can't render as Slack mentions or links.
 - `get-user-data.js` — builds cloud-init `user_data` for new VMs. Writes `/etc/glueops/codespace.env`: platform metadata as `GLUEOPS_CDE_*`, user-supplied env vars **verbatim**.
 - `profile-store.js` — S3-backed store for per-user VM profiles (env-var bundles). Whole document encrypted at rest; the S3 object key is a keyed HMAC of the email. Every S3 call is bounded by `PROFILES_S3_TIMEOUT_MS`.
 - `profile-crypto.js` — AES-256-GCM `encrypt`/`decrypt` of the profile document + keyed `hashEmail()` for the object key. Guards against a missing email.
@@ -64,11 +67,13 @@ There are no automated tests or linting tools configured.
 
 **User identity:** All operations resolve the Slack user to their email via `client.users.info({ user: body.user.id })`. The email is stored as `owner` in VM tags and used to filter VMs on list.
 
-**All responses are ephemeral:** `chat.postEphemeral` is used throughout — responses are only visible to the triggering user.
+**All responses are ephemeral:** `chat.postEphemeral` is used throughout — responses are only visible to the triggering user. Two deliberate exceptions, both for `/alerts`: its replies use `respond` (the command's response_url, ephemeral too, but it works in channels the bot isn't in), and its audit announcements and 2-hourly reminders use `chat.postMessage` to `ALERTS_AUDIT_CHANNEL_ID` so the team sees who silenced what.
 
 **Custom env vars & repo clone:** env vars are defined in a **profile** (not on the create modal, which has only a profile picker + a per-VM repo field). A profile's env (`KEY=VALUE` per line) is parsed by `parse-env-vars.js` and written **verbatim** to `codespace.env` (dev apps expect `GITHUB_TOKEN`, not `GLUEOPS_CDE_GITHUB_TOKEN`); the `GLUEOPS_CDE_` prefix is reserved for platform metadata, and user keys in that namespace are dropped. The repo is validated/normalised by `parse-repo.js`, stored on the VM tag `clone_repo`, emitted as `GLUEOPS_CDE_CLONE_REPO`, and shown in the create confirmation and `/vm list`.
 
 **VM profiles (S3 + encryption):** a profile is a per-user, named bundle of env vars stored as one JSON document per user in S3 (`profile-store.js`). The whole document is encrypted with AES-256-GCM (`profile-crypto.js`) using `PROFILES_ENCRYPTION_KEY`, and the S3 object key is a keyed HMAC of the normalized email — so the bucket reveals neither contents nor identity. Encryption is **client-side** (Node `crypto`), not S3 SSE. The create modal shows an optional profile picker (only when the user has profiles, never a default; otherwise a hint to run `/vm profile new`); on submit the selected profile's env is the **only** env source, and a profile that can't be loaded aborts creation (never a silently secretless VM). Profiles are managed via `/vm profile` + Edit/Delete/New buttons; **editing overwrites in place** (the name is locked). All `PROFILES_S3_*` + `PROFILES_ENCRYPTION_KEY` vars are **required at startup** (`requireProfilesConfig()` in `app.js`).
+
+**Pausing cluster alerts (`/alerts`):** `/alerts pause|resume|status <captain_domain>` and `/alerts paused` toggle `enabled` on a cluster's incident.io alert routes (`util/incident-io.js`). A route belongs to a cluster when the **last** `" · "`-separated segment of its name **equals** the domain — never a substring match, since one domain can contain another (`prod.example.com` is inside `nonprod.example.com`) — and a domain must contain a dot. Route names follow the convention `"<Source> · <captain_domain>"`, set by whatever manages the incident.io config. There is no PATCH, so a toggle is GET → reshape → PUT, mirroring what the OpenTofu provider sends: conditions' `subject`/`operation` objects → strings; drop `id`/`created_at`/`updated_at`; `version + 1` (a 409 is re-read and treated as done if the route already has the wanted state); escalation-path targets sent without the `users` copy the API echoes; `when_alert_joins_group` dropped when grouping is off; `incident_config` reduced to `{ enabled: false, condition_groups }` when incident creation is off. Every route is read and its payload built before any PUT, so a route the bot can't rewrite fails the command with nothing changed; a PUT that fails partway is reported per route, and whatever did change is still announced. Anyone in the workspace can run every subcommand; pause/resume are logged and announced in `ALERTS_AUDIT_CHANNEL_ID` (before the user reply) when set. No auto-resume; instead `util/alerts-reminder.js` posts the still-paused routes to the audit channel every 2 hours (only when something is paused, and only when both the key and channel are set). Resuming doesn't re-page alerts that started while paused.
 
 **Log redaction:** `logger.js` runs every record through `redact.js`, which strips secret-bearing fields (by key name and by long base64 blobs) — including the cloud-init `user_data` if the provisioner echoes it in an error. No call site can leak secrets to logs.
 
@@ -95,5 +100,7 @@ See `example.env` for the full list.
 | `PROFILES_S3_PREFIX` | Optional S3 key prefix (default `profiles/`) |
 | `PROFILES_S3_TIMEOUT_MS` | Optional per-S3-call timeout in ms (default `5000`) |
 | `PROFILES_ENCRYPTION_KEY` | 32-byte key as 64 hex chars, encrypts the profile store at rest. Generate: `openssl rand -hex 32` |
+| `INCIDENT_IO_API_KEY` | Optional. Enables `/alerts`; needs alert route view + edit |
+| `ALERTS_AUDIT_CHANNEL_ID` | Optional. Channel where every pause/resume is announced, and where still-paused routes are re-posted every 2h |
 
 The `PROFILES_*` vars (except the two optional ones) are **required** — the bot fails to start without them (`requireProfilesConfig()`).

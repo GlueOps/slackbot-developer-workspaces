@@ -5,6 +5,7 @@ import 'dotenv/config';
 import server from './app-server.js';
 import logger from './util/logger.js';
 import { requireProfilesConfig } from './util/profile-store.js';
+import startAlertsReminder from './util/alerts-reminder.js';
 
 const log = logger();
 
@@ -58,4 +59,5 @@ app.error(async (error) => {
 (async () => {
     server(receiver);
     await registerListeners(app);
+    startAlertsReminder(app);
 })();
