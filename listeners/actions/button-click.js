@@ -5,8 +5,7 @@ This file is responsible for handling button click events.
 import path from 'path';
 import { fileURLToPath, pathToFileURL } from 'url';
 import registeredButtons from './buttons.js';
-
-const commandPrefix = process.env.APP_ENVIRONMENT === 'prod' ? '' : 'test-';
+import commandPrefix from '../../util/command-prefix.js';
 
 export default function button(app) {
 
@@ -57,6 +56,6 @@ export default function button(app) {
     }
 
     // run the command's button handler
-    commandObject.button({ app, body, actionId, commandPrefix });
+    commandObject.button({ app, body, actionId, commandPrefix: commandPrefix() });
     });
 }

@@ -13,6 +13,13 @@
                 "url": "<your server's url>/slack/events",
                 "description": "Create a codespace",
                 "should_escape": false
+            },
+            {
+                "command": "/alerts",
+                "url": "<your server's url>/slack/events",
+                "description": "Pause or resume incident.io alerts for a cluster",
+                "usage_hint": "status|pause|resume <captain_domain> | paused",
+                "should_escape": false
             }
         ]
     },
