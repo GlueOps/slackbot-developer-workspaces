@@ -78,20 +78,36 @@ export const clusterRoutes = (routes, domain) =>
 export const pausedRoutes = (routes) =>
     routes.filter(r => !r.enabled && clusterDomain(r.name));
 
-// Conditions come back as { subject: {label, reference}, operation: {label, value} }
-// but are sent as plain strings. They appear in several places (route, per-source,
-// message destinations, incident config), so walk the whole route.
-const flattenConditions = (node) => {
-    if (Array.isArray(node)) return node.map(flattenConditions);
+// Response -> payload shapes found anywhere in the route (route, per-source, message
+// destinations, incident config, escalation targets), so walk the whole thing:
+// - Conditions come back as { subject: {label, reference}, operation: {label, value} }
+//   but are sent as plain strings.
+// - A binding value is sent as { literal?, reference? }. The v3 spec declares nothing
+//   else, but the provider notes alert routes read back decorated (label,
+//   catalog_entry, ...) — it drops extras by decoding into typed structs; strip them
+//   here. In a route, only binding values, condition subjects and grouping keys carry
+//   `literal`/`reference`, and the latter two keep what they need.
+const toPayloadShape = (node) => {
+    if (Array.isArray(node)) return node.map(toPayloadShape);
     if (!node || typeof node !== 'object') return node;
     const out = {};
-    for (const [k, v] of Object.entries(node)) out[k] = flattenConditions(v);
+    for (const [k, v] of Object.entries(node)) out[k] = toPayloadShape(v);
     if (out.subject && typeof out.subject === 'object' && out.operation && typeof out.operation === 'object') {
         out.subject = out.subject.reference;
         out.operation = out.operation.value;
     }
+    if ('literal' in out || 'reference' in out) {
+        const value = {};
+        if (out.literal !== undefined) value.literal = out.literal;
+        if (out.reference !== undefined) value.reference = out.reference;
+        return value;
+    }
     return out;
 };
+
+// Whether a binding ({ value?, array_value? }) actually holds something. An empty
+// binding object is truthy, so `if (binding)` isn't enough.
+const hasBinding = (b) => Boolean(b?.value?.literal || b?.value?.reference || b?.array_value?.length);
 
 // Response -> update payload, mirroring what the OpenTofu provider sends. Throws for
 // a route it can't safely rewrite.
@@ -101,16 +117,18 @@ export const toUpdatePayload = (route, enabled) => {
     if (route.expressions?.length) {
         throw new Error(`route "${route.name}" has expressions, which /alerts doesn't handle`);
     }
-    const { id, created_at, updated_at, ...rest } = flattenConditions(route);
+    const { id, created_at, updated_at, ...rest } = toPayloadShape(route);
     const payload = { ...rest, enabled, version: route.version + 1 };
 
     if (payload.escalation_config) {
-        // A target is an escalation-path binding or a user binding, never both, but the
-        // API echoes an escalation-path binding into `users` too. Send it back once.
+        // A target is an escalation-path binding or a user binding, never both (the API
+        // rejects both), but it echoes an escalation-path binding into `users` too. Send
+        // back only the binding that holds a value.
         const escalation = {
             ...payload.escalation_config,
             escalation_targets: (payload.escalation_config.escalation_targets ?? []).map(t =>
-                t.escalation_paths ? { escalation_paths: t.escalation_paths } : t),
+                hasBinding(t.escalation_paths) ? { escalation_paths: t.escalation_paths }
+                    : hasBinding(t.users) ? { users: t.users } : t),
         };
         // when_alert_joins_group is echoed as returned, grouping on or off: a team
         // preference can group the route's alerts, and the provider re-sends it the same
@@ -122,6 +140,12 @@ export const toUpdatePayload = (route, enabled) => {
             escalation.when_alert_joins_group = mode;
         }
         payload.escalation_config = escalation;
+    }
+
+    // With grouping off the API rejects the grouping details (keys, window, AI), which
+    // it may still return; the provider sends only `enabled` then.
+    if (payload.grouping_config?.default && !payload.grouping_config.default.enabled) {
+        payload.grouping_config = { ...payload.grouping_config, default: { enabled: false } };
     }
 
     // With incident creation off the API rejects the template and auto-decline fields
@@ -138,22 +162,22 @@ export const getRoute = async (routeId) =>
 // PUT a payload from toUpdatePayload(). Returns true if this call changed the route,
 // false if a concurrent edit already left it in the wanted state.
 //
-// On any failure the route is re-read. After a 4xx (e.g. 409, the version moved — a
+// A 2xx means this PUT applied (it carried the next version). If the response doesn't
+// confirm the new state (an unexpected body), the route is re-read once to check.
+//
+// On a failed PUT the route is re-read. After a 4xx (e.g. 409, the version moved — a
 // concurrent edit), a route already in the wanted state was changed by someone else.
 // After a timeout or 5xx the PUT may have applied anyway — possibly a moment later, so
 // it is re-read once more after SETTLE_MS — and a route in the wanted state counts as
 // changed here and gets announced.
 export const putRoute = async (routeId, payload) => {
+    const inWantedState = async () => (await getRoute(routeId))?.enabled === payload.enabled;
+    let res;
     try {
-        const res = await client().put(`/v3/alert_routes/${routeId}`, payload);
-        if (res.data?.alert_route?.enabled !== payload.enabled) {
-            throw new Error(`update of route "${payload.name}" did not apply`);
-        }
-        return true;
+        res = await client().put(`/v3/alert_routes/${routeId}`, payload);
     } catch (error) {
         const status = error.response?.status;
         const mayHaveApplied = !status || status >= 500;
-        const inWantedState = async () => (await getRoute(routeId))?.enabled === payload.enabled;
         try {
             if (await inWantedState()) return mayHaveApplied;
             if (mayHaveApplied) {
@@ -165,4 +189,6 @@ export const putRoute = async (routeId, payload) => {
         }
         throw error;
     }
+    if (res.data?.alert_route?.enabled === payload.enabled || await inWantedState()) return true;
+    throw new Error(`update of route "${payload.name}" did not apply`);
 };

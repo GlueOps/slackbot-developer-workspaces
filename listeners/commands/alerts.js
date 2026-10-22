@@ -56,9 +56,13 @@ export default {
         const [rawSubcommand, rawDomain, ...extra] = event.text.trim().split(/\s+/);
         const subcommand = rawSubcommand.toLowerCase();
         const domain = rawDomain && unwrapLink(rawDomain).toLowerCase();
-        // Once the first PUT is sent, a failure can no longer mean "nothing changed".
-        let putsStarted = false;
+        const enabled = subcommand === 'resume';
+        const verb = enabled ? 'resumed' : 'paused';
 
+        // Read phase: nothing has been written yet, so any failure here leaves every
+        // route as it was.
+        const pending = [];
+        const already = [];
         try {
             if (subcommand === 'paused' && !rawDomain) {
                 const paused = pausedRoutes(await listRoutes());
@@ -84,23 +88,27 @@ export default {
                 return;
             }
 
-            const enabled = subcommand === 'resume';
-            const verb = enabled ? 'resumed' : 'paused';
             await reply(`${enabled ? 'Resuming' : 'Pausing'} alerts for \`${domain}\`…`);
 
             // Read and build every payload before changing anything, so a route the bot
             // can't rewrite fails the command up front instead of leaving it half done.
-            const pending = [];
-            const already = [];
             for (const { id } of routes) {
                 const route = await getRoute(id);
                 if (route.enabled === enabled) already.push(route.name);
                 else pending.push({ id, name: route.name, payload: toUpdatePayload(route, enabled) });
             }
+        } catch (error) {
+            // axiosError() drops config.headers, which carries the incident.io API key.
+            log.error(`alerts: ${subcommand} failed`, { user: event.user_id, domain, ...axiosError(error) });
+            await reply(`/${commandPrefix}alerts ${subcommand} failed: ${escapeMrkdwn(apiErrorMessage(error))}. Nothing was changed.`);
+            return;
+        }
 
+        // Write phase: each PUT, the announcement and the reply handle their own
+        // failures. The catch is a backstop for a bug, since routes may have changed.
+        try {
             const changed = [];
             const failed = [];
-            putsStarted = true;
             for (const { id, name, payload } of pending) {
                 try {
                     if (await putRoute(id, payload)) changed.push(name);
@@ -142,12 +150,8 @@ export default {
             }
             await reply(lines.join('\n'));
         } catch (error) {
-            // axiosError() drops config.headers, which carries the incident.io API key.
-            log.error(`alerts: ${subcommand} failed`, { user: event.user_id, domain, ...axiosError(error) });
-            const outcome = putsStarted
-                ? ` Some routes may have changed — run /${commandPrefix}alerts status ${domain}.`
-                : ' Nothing was changed.';
-            await reply(`/${commandPrefix}alerts ${subcommand} failed: ${escapeMrkdwn(apiErrorMessage(error))}.${outcome}`);
+            log.error(`alerts: ${subcommand} failed after updating routes`, { user: event.user_id, domain, ...axiosError(error) });
+            await reply(`/${commandPrefix}alerts ${subcommand} failed partway. Some routes may have changed — run /${commandPrefix}alerts status ${domain}.`);
         }
     }
 }

@@ -37,6 +37,9 @@ import { DOMAIN_PATTERN, incidentIoConfigured, apiErrorMessage, listRoutes, clus
 import startAlertsReminder, { remindPausedAlerts } from './util/alerts-reminder.js' // 2-hourly still-paused reminder
 import escapeMrkdwn from './util/escape-mrkdwn.js'             // escape &<> in names from other systems
 
+// Slash command prefix ('' in prod, 'test-' otherwise) — the only place it's decided
+import commandPrefix from './util/command-prefix.js'           // commandPrefix() reads APP_ENVIRONMENT per call
+
 // Profile store (S3, encrypted)
 import { requireProfilesConfig, listProfiles, getProfile, saveProfile, deleteProfile } from './util/profile-store.js'
 import { encrypt, decrypt, hashEmail, encryptionKeyValid } from './util/profile-crypto.js'
@@ -210,9 +213,12 @@ Store: profile-store.js → one JSON doc per user at profiles/<hmac(email)>.json
      LAST " · " segment (lowercased, trimmed) EQUALS <domain> (never substring)
   → respond() "Pausing…/Resuming…" right away
   → per route: GET + toUpdatePayload() for every route first (a route that can't be
-     rewritten aborts with nothing changed); routes already in the wanted state skipped
-  → per route: PUT (any failure → re-read; timeout/5xx → re-read again after 3s;
-     already in the wanted state = done)
+     rewritten aborts with nothing changed); routes already in the wanted state skipped.
+     A failure in this read phase replies "Nothing was changed."
+  → per route: PUT (2xx not confirming the new state → one re-read; failure → re-read;
+     timeout/5xx → re-read again after 3s; already in the wanted state = done).
+     Every write-phase step handles its own errors; a backstop catch says routes may
+     have changed
   → if anything changed or failed and ALERTS_AUDIT_CHANNEL_ID is set: audit
      postMessage FIRST (failures flagged as "may still apply")
   → respond() with what changed, what was already in that state, what failed (API's

@@ -14,12 +14,12 @@ import logger from './logger.js';
 import axiosError from './axios-error-handler.js';
 import { incidentIoConfigured, listRoutes, pausedRoutes, getRoute } from './incident-io.js';
 import escapeMrkdwn from './escape-mrkdwn.js';
+import commandPrefix from './command-prefix.js';
 
 const log = logger();
 
 const REMINDER_INTERVAL_MS = 1000 * 60 * 60 * 2;
 const FIRST_REMINDER_DELAY_MS = 1000 * 60;
-const commandPrefix = process.env.APP_ENVIRONMENT === 'prod' ? '' : 'test-';
 
 // Slack renders this in each reader's timezone; the fallback is for clients that can't.
 const slackDate = (iso) => {
@@ -41,7 +41,7 @@ export const remindPausedAlerts = async (app) => {
 
     await app.client.chat.postMessage({
         channel: process.env.ALERTS_AUDIT_CHANNEL_ID,
-        text: `:double_vertical_bar: Reminder: incident.io alerts are still paused for:\n${lines.join('\n')}\nResume with /${commandPrefix}alerts resume &lt;captain_domain&gt;.`
+        text: `:double_vertical_bar: Reminder: incident.io alerts are still paused for:\n${lines.join('\n')}\nResume with /${commandPrefix()}alerts resume &lt;captain_domain&gt;.`
     });
 };
 

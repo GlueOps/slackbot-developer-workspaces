@@ -2,6 +2,7 @@ import path from 'path';
 import { fileURLToPath, pathToFileURL } from 'url';
 import logger from '../../util/logger.js';
 import getFiles from '../../util/get-files.js';
+import commandPrefix from '../../util/command-prefix.js';
 
 export default async function register(app) {
     const log = logger();
@@ -10,6 +11,7 @@ export default async function register(app) {
     const currentFileDir = path.dirname(currentFilePath);
 
     const commands = getFiles(path.join(currentFileDir));
+    const prefix = commandPrefix();
 
     //loop through all the commands
     for (const command of commands) {
@@ -27,13 +29,12 @@ export default async function register(app) {
             continue;
         }
 
-        const commandPrefix = process.env.APP_ENVIRONMENT === 'prod' ? '' : 'test-';
-        const fullCommand = `/${commandPrefix}${commandName}`;
+        const fullCommand = `/${prefix}${commandName}`;
         
         //register the command
         app.command(fullCommand, async ({ command, ack, body, respond }) => {
             await ack();
-            await commandObject.run({ event: command, app, body, respond, commandPrefix });
+            await commandObject.run({ event: command, app, body, respond, commandPrefix: prefix });
         });
     }
 }
