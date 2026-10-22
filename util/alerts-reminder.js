@@ -31,7 +31,7 @@ export const remindPausedAlerts = async (app) => {
 
     await app.client.chat.postMessage({
         channel: process.env.ALERTS_AUDIT_CHANNEL_ID,
-        text: `:alarm_clock: *Reminder:* incident.io alerts are still paused for:\n${lines.join('\n')}\nResume with /${commandPrefix()}alerts resume &lt;captain_domain&gt;.`
+        text: `:alarm_clock: *Reminder:* incident.io alerts are still paused for:\n${lines.join('\n')}\nResume with \`/${commandPrefix()}alerts resume &lt;captain_domain&gt;\`.`
     });
 };
 
