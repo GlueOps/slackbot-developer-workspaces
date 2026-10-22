@@ -30,7 +30,9 @@ const log = logger();
 // (a response_url is a credential for that channel for 30 minutes).
 const slackError = (error) => ({ message: error.message, status: error.statusCode ?? error.data?.error });
 
-const routeLine = (r) => `${r.enabled ? ':large_green_circle: active' : ':double_vertical_bar: paused'}  ${escapeMrkdwn(r.name)}`;
+// One emoji vocabulary across replies, announcements and the reminder: :bell: pages,
+// :no_bell: is paused.
+const routeLine = (r) => `${r.enabled ? ':bell: *active*' : ':no_bell: *paused*'}  ${escapeMrkdwn(r.name)}`;
 
 // Slack may hand a bare domain over as a link: <http://a.b.com|a.b.com> or <http://a.b.com>.
 const unwrapLink = (arg) => arg.replace(/^<(?:https?:\/\/)?([^|>]+)(?:\|([^>]+))?>$/, (_, url, label) => label ?? url);
@@ -46,10 +48,10 @@ export default {
                 log.error('alerts: reply failed', slackError(error));
             }
         };
-        const usage = `Usage: /${commandPrefix}alerts status|pause|resume &lt;captain_domain&gt;, or /${commandPrefix}alerts paused`;
+        const usage = `:information_source: Usage: /${commandPrefix}alerts status|pause|resume &lt;captain_domain&gt;, or /${commandPrefix}alerts paused`;
 
         if (!incidentIoConfigured()) {
-            await reply('The /alerts command is not configured (INCIDENT_IO_API_KEY is unset).');
+            await reply(':gear: The /alerts command is not configured (INCIDENT_IO_API_KEY is unset).');
             return;
         }
 
@@ -67,8 +69,8 @@ export default {
             if (subcommand === 'paused' && !rawDomain) {
                 const paused = pausedRoutes(await listRoutes());
                 await reply(paused.length
-                    ? `Paused alert routes:\n${paused.map(routeLine).join('\n')}`
-                    : 'No alert routes are paused.');
+                    ? `*Paused alert routes:*\n${paused.map(routeLine).join('\n')}`
+                    : ':bell: No alert routes are paused.');
                 return;
             }
 
@@ -79,16 +81,16 @@ export default {
 
             const routes = clusterRoutes(await listRoutes(), domain);
             if (!routes.length) {
-                await reply(`No incident.io alert routes found for \`${domain}\`. Check the captain_domain.`);
+                await reply(`:mag: No incident.io alert routes found for \`${domain}\`. Check the captain_domain.`);
                 return;
             }
 
             if (subcommand === 'status') {
-                await reply(`Alert routes for \`${domain}\`:\n${routes.map(routeLine).join('\n')}`);
+                await reply(`*Alert routes for \`${domain}\`:*\n${routes.map(routeLine).join('\n')}`);
                 return;
             }
 
-            await reply(`${enabled ? 'Resuming' : 'Pausing'} alerts for \`${domain}\`…`);
+            await reply(`:hourglass_flowing_sand: ${enabled ? 'Resuming' : 'Pausing'} alerts for \`${domain}\`…`);
 
             // Read and build every payload before changing anything, so a route the bot
             // can't rewrite fails the command up front instead of leaving it half done.
@@ -100,7 +102,7 @@ export default {
         } catch (error) {
             // axiosError() drops config.headers, which carries the incident.io API key.
             log.error(`alerts: ${subcommand} failed`, { user: event.user_id, domain, ...axiosError(error) });
-            await reply(`/${commandPrefix}alerts ${subcommand} failed: ${escapeMrkdwn(apiErrorMessage(error))}. Nothing was changed.`);
+            await reply(`:x: /${commandPrefix}alerts ${subcommand} failed: ${escapeMrkdwn(apiErrorMessage(error))}. Nothing was changed.`);
             return;
         }
 
@@ -131,7 +133,7 @@ export default {
                 try {
                     await app.client.chat.postMessage({
                         channel: process.env.ALERTS_AUDIT_CHANNEL_ID,
-                        text: `${enabled ? ':arrow_forward:' : ':double_vertical_bar:'} <@${event.user_id}> ${action} incident.io alerts for \`${domain}\` (${counts})`
+                        text: `${failed.length ? ':warning:' : enabled ? ':bell:' : ':no_bell:'} <@${event.user_id}> ${action} incident.io alerts for \`${domain}\` (${counts})`
                     });
                 } catch (error) {
                     log.error('alerts: audit announcement failed', slackError(error));
@@ -139,19 +141,22 @@ export default {
             }
 
             const lines = [];
-            if (changed.length) lines.push(`Alerts ${verb} for \`${domain}\`:`, ...changed.map(n => `• ${escapeMrkdwn(n)}`));
-            if (already.length) lines.push(`Already ${verb}:`, ...already.map(n => `• ${escapeMrkdwn(n)}`));
+            if (changed.length) lines.push(`${enabled ? ':bell:' : ':no_bell:'} *Alerts ${verb} for \`${domain}\`:*`, ...changed.map(n => `• ${escapeMrkdwn(n)}`));
+            if (already.length) lines.push(`:ballot_box_with_check: *Already ${verb}:*`, ...already.map(n => `• ${escapeMrkdwn(n)}`));
             if (failed.length) {
-                lines.push(`Failed to ${subcommand}:`, ...failed.map(f => `• ${escapeMrkdwn(f.name)}: ${escapeMrkdwn(f.reason)}`),
+                lines.push(`:x: *Failed to ${subcommand}:*`, ...failed.map(f => `• ${escapeMrkdwn(f.name)}: ${escapeMrkdwn(f.reason)}`),
                     `Run /${commandPrefix}alerts ${subcommand} ${domain} again to retry.`);
             }
+            if (!enabled && changed.length) {
+                lines.push(`:warning: Nothing pages for \`${domain}\` until you run /${commandPrefix}alerts resume ${domain}.`);
+            }
             if (enabled && changed.length) {
-                lines.push('Alerts that started while paused won\'t page now. Check the cluster\'s open alerts in incident.io.');
+                lines.push(':warning: Alerts that started while paused won\'t page now. Check the cluster\'s open alerts in incident.io.');
             }
             await reply(lines.join('\n'));
         } catch (error) {
             log.error(`alerts: ${subcommand} failed after updating routes`, { user: event.user_id, domain, ...axiosError(error) });
-            await reply(`/${commandPrefix}alerts ${subcommand} failed partway. Some routes may have changed — run /${commandPrefix}alerts status ${domain}.`);
+            await reply(`:warning: /${commandPrefix}alerts ${subcommand} failed partway. Some routes may have changed — run /${commandPrefix}alerts status ${domain}.`);
         }
     }
 }

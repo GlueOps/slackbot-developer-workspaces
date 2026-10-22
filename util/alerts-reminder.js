@@ -27,11 +27,11 @@ export const remindPausedAlerts = async (app) => {
 
     // No "paused since": the v3 API returns no updated_at for a route. The audit
     // channel's pause announcement is the record of when and who.
-    const lines = paused.map(r => `• ${escapeMrkdwn(r.name)}`);
+    const lines = paused.map(r => `:no_bell: ${escapeMrkdwn(r.name)}`);
 
     await app.client.chat.postMessage({
         channel: process.env.ALERTS_AUDIT_CHANNEL_ID,
-        text: `:double_vertical_bar: Reminder: incident.io alerts are still paused for:\n${lines.join('\n')}\nResume with /${commandPrefix()}alerts resume &lt;captain_domain&gt;.`
+        text: `:alarm_clock: *Reminder:* incident.io alerts are still paused for:\n${lines.join('\n')}\nResume with /${commandPrefix()}alerts resume &lt;captain_domain&gt;.`
     });
 };
 
