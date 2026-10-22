@@ -12,7 +12,7 @@
 */
 import logger from './logger.js';
 import axiosError from './axios-error-handler.js';
-import { incidentIoConfigured, listRoutes, pausedRoutes, getRoute } from './incident-io.js';
+import { incidentIoConfigured, listRoutes, pausedRoutes } from './incident-io.js';
 import escapeMrkdwn from './escape-mrkdwn.js';
 import commandPrefix from './command-prefix.js';
 
@@ -21,23 +21,13 @@ const log = logger();
 const REMINDER_INTERVAL_MS = 1000 * 60 * 60 * 2;
 const FIRST_REMINDER_DELAY_MS = 1000 * 60;
 
-// Slack renders this in each reader's timezone; the fallback is for clients that can't.
-const slackDate = (iso) => {
-    const ts = Math.floor(Date.parse(iso) / 1000);
-    return Number.isFinite(ts) ? `<!date^${ts}^{date_short_pretty} {time}|${escapeMrkdwn(iso)}>` : 'unknown';
-};
-
 export const remindPausedAlerts = async (app) => {
     const paused = pausedRoutes(await listRoutes());
     if (!paused.length) return;
 
-    // updated_at is when the route last changed — for a paused route, normally the
-    // pause. A failed lookup only loses that route's time, not the whole reminder.
-    const details = await Promise.allSettled(paused.map(r => getRoute(r.id)));
-    const lines = paused.map((r, i) => {
-        const since = details[i].status === 'fulfilled' ? slackDate(details[i].value.updated_at) : 'unknown';
-        return `• ${escapeMrkdwn(r.name)} (since ${since})`;
-    });
+    // No "paused since": the v3 API returns no updated_at for a route. The audit
+    // channel's pause announcement is the record of when and who.
+    const lines = paused.map(r => `• ${escapeMrkdwn(r.name)}`);
 
     await app.client.chat.postMessage({
         channel: process.env.ALERTS_AUDIT_CHANNEL_ID,

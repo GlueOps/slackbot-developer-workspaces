@@ -226,8 +226,8 @@ Store: profile-store.js → one JSON doc per user at profiles/<hmac(email)>.json
 
 every 2h (util/alerts-reminder.js, started in app.js; first run 1 min after startup)
   → pausedRoutes(listRoutes()); nothing paused → no post
-  → postMessage to ALERTS_AUDIT_CHANNEL_ID, one line per route with "since" = the
-     route's updated_at ("unknown" if that lookup fails)
+  → postMessage to ALERTS_AUDIT_CHANNEL_ID, one line per paused route (no "since":
+     the v3 API returns no updated_at)
 ```
 
 If the routes are managed as code (e.g. Terraform/OpenTofu), that config may own `enabled` too: an apply there can re-enable a paused route unless it ignores changes to `enabled`.
