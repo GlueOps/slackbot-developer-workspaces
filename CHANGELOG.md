@@ -1,5 +1,24 @@
 # Changelog
 
+## [4.4.0](https://github.com/GlueOps/slackbot-developer-workspaces/compare/v4.3.0...v4.4.0) (2026-10-22)
+
+
+### Features
+
+* add /alerts command to pause incident.io alerts per cluster ([#564](https://github.com/GlueOps/slackbot-developer-workspaces/issues/564)) ([ba8e301](https://github.com/GlueOps/slackbot-developer-workspaces/commit/ba8e301e4f2b30f3e8c11b1cc3fdbb222f28f116))
+* update docker/build-push-action to v7.4.0 #minor ([#555](https://github.com/GlueOps/slackbot-developer-workspaces/issues/555)) ([5a8e947](https://github.com/GlueOps/slackbot-developer-workspaces/commit/5a8e9472bcefef5cc414b8e390f01865592aecdb))
+* update docker/login-action to v4.6.0 #minor ([#511](https://github.com/GlueOps/slackbot-developer-workspaces/issues/511)) ([89b689a](https://github.com/GlueOps/slackbot-developer-workspaces/commit/89b689aed398dad76ec2f643631ecb9176be3528))
+* update docker/setup-buildx-action to v4.4.1 #minor ([#557](https://github.com/GlueOps/slackbot-developer-workspaces/issues/557)) ([25af1d4](https://github.com/GlueOps/slackbot-developer-workspaces/commit/25af1d4e4143a6891dffea5e68cfb9d1fceb033a))
+
+
+### Miscellaneous Chores
+
+* **fallback:** update node ([#493](https://github.com/GlueOps/slackbot-developer-workspaces/issues/493)) ([4f7a2f3](https://github.com/GlueOps/slackbot-developer-workspaces/commit/4f7a2f323f742cd8f25605bd211a4664363e0a75))
+* **lockfile:** update @aws-sdk/client-s3-lockfile #patch ([#528](https://github.com/GlueOps/slackbot-developer-workspaces/issues/528)) ([5d5b34f](https://github.com/GlueOps/slackbot-developer-workspaces/commit/5d5b34f359aefae5fdb7c2bc59bd523a6dc8e368))
+* **lockfile:** update @aws-sdk/client-s3-lockfile #patch ([#562](https://github.com/GlueOps/slackbot-developer-workspaces/issues/562)) ([06a5887](https://github.com/GlueOps/slackbot-developer-workspaces/commit/06a58879e771b8e5321516c66b65fddccd38a870))
+* **lockfile:** update axios-lockfile #patch ([#512](https://github.com/GlueOps/slackbot-developer-workspaces/issues/512)) ([a0fcad4](https://github.com/GlueOps/slackbot-developer-workspaces/commit/a0fcad4970b48d1cc7110affcf5a9b915e816cc6))
+* **lockfile:** update axios-lockfile #patch ([#540](https://github.com/GlueOps/slackbot-developer-workspaces/issues/540)) ([d7e4116](https://github.com/GlueOps/slackbot-developer-workspaces/commit/d7e4116a7dc4ec798e2b7d89d5f44477c46dd774))
+
 ## [4.3.0](https://github.com/GlueOps/slackbot-developer-workspaces/compare/v4.2.0...v4.3.0) (2026-08-02)
 
 
